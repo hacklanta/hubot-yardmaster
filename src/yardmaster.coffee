@@ -43,6 +43,18 @@ module.exports = (robot) ->
                 return
               else if res.statusCode is 200
                 msg.send "#{job} updated to use brach #{branch}"
+                robot.http("#{jenkinsURL}/job/#{job}/build")
+                  .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+                  .post() (err, res, body) ->
+                    if err
+                      msg.send "Encountered an error :( #{err}"
+                      return
+                    else if res.statusCode is 200
+                      msg.send "#{job} built with #{branch}"
+                    else
+                      msg.send "something went wrong :(" 
+                      return
+
               else
                 msg.send "something went wrong :(" 
                 return
