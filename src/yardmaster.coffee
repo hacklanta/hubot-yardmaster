@@ -47,14 +47,13 @@ module.exports = (robot) ->
                   .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
                   .post() (err, res, body) ->
                     if err
-                      msg.send "Encountered an error :( #{err}"
+                      msg.send "Encountered an on build :( #{err}"
                       return
-                    else if res.statusCode is 200
+                    else if res.statusCode is 201
                       msg.send "#{job} built with #{branch}"
                     else
-                      msg.send "something went wrong :(" 
+                      msg.send "something went wrong with #{res.statusCode} :(" 
                       return
-
               else
                 msg.send "something went wrong :(" 
                 return
