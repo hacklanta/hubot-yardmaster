@@ -21,7 +21,19 @@ module.exports = (robot) ->
   jenkinsURL = process.env.HUBOT_JENKINS_URL
   jenkinsUser = process.env.HUBOT_JENKINS_USER
   jenkinsUserAPIKey = process.env.HUBOT_JENKINS_USER_API_KEY
-  
+
+  buildBranch = (job, branch, msg) ->
+    msg.send "#{job} updated to use brach #{branch}"
+    robot.http("#{jenkinsURL}/job/#{job}/build")
+    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+    .post() (err, res, body) ->
+      if err
+        msg.send "Encountered an on build :( #{err}"
+      else if res.statusCode is 201
+        msg.send "#{job} built with #{branch}"
+      else
+        msg.send "something went wrong with #{res.statusCode} :(" 
+
   robot.hear /(switch|change) (.+) to (.+)/i, (msg) ->
     job = msg.match[2]
     branch = msg.match[3]
@@ -31,7 +43,6 @@ module.exports = (robot) ->
       .get() (err, res, body) ->
         if err
           msg.send "Encountered an error :( #{err}"
-          return
         else
           config = body.replace /\<name\>.*\<\/name\>/g, "<name>#{branch}</name>"   
           
@@ -40,23 +51,10 @@ module.exports = (robot) ->
             .post(config) (err, res, body) ->
               if err
                 msg.send "Encountered an error :( #{err}"
-                return
               else if res.statusCode is 200
-                msg.send "#{job} updated to use brach #{branch}"
-                robot.http("#{jenkinsURL}/job/#{job}/build")
-                  .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-                  .post() (err, res, body) ->
-                    if err
-                      msg.send "Encountered an on build :( #{err}"
-                      return
-                    else if res.statusCode is 201
-                      msg.send "#{job} built with #{branch}"
-                    else
-                      msg.send "something went wrong with #{res.statusCode} :(" 
-                      return
+                buildBranch(job, branch, msg)  
               else
                 msg.send "something went wrong :(" 
-                return
   
   robot.hear /(show\s)?current branch for (.+)/i, (msg) ->
     job = msg.match[2]
@@ -66,7 +64,6 @@ module.exports = (robot) ->
       .get() (err, res, body) ->
         if err
           msg.send "Encountered an error :( #{err}"
-          return
         else      
           config = /<name>(.*)<\/name>/g.exec body
           msg.send("current branch is #{config[1]}")
