@@ -16,6 +16,8 @@
 # Author: 
 #   hacklanta
 
+{parseString} = require 'xml2js'
+
 module.exports = (robot) ->
 
   jenkinsURL = process.env.HUBOT_JENKINS_URL
@@ -34,6 +36,12 @@ module.exports = (robot) ->
       else
         msg.send "something went wrong with #{res.statusCode} :(" 
 
+  getCurrentBranch = (body) ->
+    branch = ""
+    parseString body, (err, result) ->
+      branch = result.project.scm[0].branches[0]['hudson.plugins.git.BranchSpec'][0].name[0]
+    branch
+    
   robot.hear /(switch|change) (.+) to (.+)/i, (msg) ->
     job = msg.match[2]
     branch = msg.match[3]
@@ -65,7 +73,4 @@ module.exports = (robot) ->
         if err
           msg.send "Encountered an error :( #{err}"
         else      
-          config = /<name>(.*)<\/name>/g.exec body
-          msg.send("current branch is #{config[1]}")
-          return
-          
+          msg.send("current branch is " + getCurrentBranch(body))
