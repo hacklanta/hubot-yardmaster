@@ -13,12 +13,12 @@
 #   hubot switch|change JOB to BRANCH - Change JOB to BRANCH
 #   hubot (show )current branch for JOB - Shows current branch for JOB
 # 
-# Auther: 
+# Author: 
 #   hacklanta
 
 module.exports = (robot) ->
 
-  jenkinsURL = process.env.JENKINS_URL
+  jenkinsURL = process.env.HUBOT_JENKINS_URL
   jenkinsUser = process.env.HUBOT_JENKINS_USER
   jenkinsUserAPIKey = process.env.HUBOT_JENKINS_USER_API_KEY
   
