@@ -11,7 +11,7 @@
 #
 # Commands:
 #   hubot switch|change JOB to BRANCH - Change JOB to BRANCH
-#   hubot (show )current branch for JOB - Shows current branch for JOB
+#   hubot (show) current branch for JOB - Shows current branch for JOB
 # 
 # Author: 
 #   hacklanta
@@ -26,20 +26,27 @@ module.exports = (robot) ->
 
   buildBranch = (job, branch, msg) ->
     msg.send "#{job} updated to use brach #{branch}"
+
     robot.http("#{jenkinsURL}/job/#{job}/build")
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .post() (err, res, body) ->
-      if err
-        msg.send "Encountered an on build :( #{err}"
-      else if res.statusCode is 201
-        msg.send "#{job} built with #{branch}"
-      else
-        msg.send "something went wrong with #{res.statusCode} :(" 
+      .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+      .post() (err, res, body) ->
+        if err
+          msg.send "Encountered an error on build :( #{err}"
+        else if res.statusCode is 201
+          msg.send "#{job} built with #{branch}"
+        else
+          msg.send "something went wrong with #{res.statusCode} :(" 
 
   getCurrentBranch = (body) ->
     branch = ""
     parseString body, (err, result) ->
-      branch = result.project.scm[0].branches[0]['hudson.plugins.git.BranchSpec'][0].name[0]
+      branch = 
+        try
+          jenkinsJob = result.project
+          jenkinsJob.scm[0].branches[0]['hudson.plugins.git.BranchSpec'][0].name[0]
+        catch error
+          ""
+
     branch
     
   robot.hear /(switch|change) (.+) to (.+)/i, (msg) ->
@@ -73,4 +80,8 @@ module.exports = (robot) ->
         if err
           msg.send "Encountered an error :( #{err}"
         else      
-          msg.send("current branch is " + getCurrentBranch(body))
+          currentBranch = getCurrentBranch(body)
+          if currentBranch == ""
+             msg.send("Did not find job '#{job}'")
+          else
+            msg.send("current branch is " + getCurrentBranch(body))
