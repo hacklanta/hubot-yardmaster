@@ -45,7 +45,7 @@ module.exports = (robot) ->
     branch
     
   # Switch Current Branch  
-  robot.hear /(switch|change) (.+) to (.+)/i, (msg) ->
+  robot.respond /(switch|change) (.+) to (.+)/i, (msg) ->
     job = msg.match[2]
     branch = msg.match[3]
 
@@ -76,7 +76,7 @@ module.exports = (robot) ->
   
 
   # Show Current Branch 
-  robot.hear /(show\s)?current branch for (.+)/i, (msg) ->
+  robot.respond /(show\s)?current branch for (.+)/i, (msg) ->
     job = msg.match[2]
     
     robot.http("#{jenkinsURL}/job/#{job}/config.xml")
