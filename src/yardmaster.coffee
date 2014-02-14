@@ -55,14 +55,19 @@ module.exports = (robot) ->
         if err
           msg.send "Encountered an error :( #{err}"
         else
-          config = body.replace /\<name\>.*\<\/name\>/g, "<name>#{branch}</name>"   
+          # this is a regex replace for the branch name
+          # Spaces below are to keep the xml formatted nicely
+          # TODO: parse as XML and replace string (drop regex)
+          config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
           
+          # try to update config
           robot.http("#{jenkinsURL}/job/#{job}/config.xml")
             .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
             .post(config) (err, res, body) ->
               if err
                 msg.send "Encountered an error :( #{err}"
               else if res.statusCode is 200
+                # if update successful build branch
                 buildBranch(job, branch, msg)  
               else if  res.statusCode is 404
                  msg.send "job '#{job}' not found" 
