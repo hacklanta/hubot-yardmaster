@@ -40,15 +40,11 @@ module.exports = (robot) ->
   getCurrentBranch = (body) ->
     branch = ""
     parseString body, (err, result) ->
-      branch = 
-        try
-          jenkinsJob = result.project
-          jenkinsJob.scm[0].branches[0]['hudson.plugins.git.BranchSpec'][0].name[0]
-        catch error
-          ""
+      branch = result?.project?.scm[0]?.branches[0]['hudson.plugins.git.BranchSpec'][0].name[0]
 
     branch
     
+  # Switch Current Branch  
   robot.hear /(switch|change) (.+) to (.+)/i, (msg) ->
     job = msg.match[2]
     branch = msg.match[3]
@@ -68,9 +64,13 @@ module.exports = (robot) ->
                 msg.send "Encountered an error :( #{err}"
               else if res.statusCode is 200
                 buildBranch(job, branch, msg)  
+              else if  res.statusCode is 404
+                 msg.send "job '#{job}' not found" 
               else
                 msg.send "something went wrong :(" 
   
+
+  # Show Current Branch 
   robot.hear /(show\s)?current branch for (.+)/i, (msg) ->
     job = msg.match[2]
     
@@ -79,9 +79,10 @@ module.exports = (robot) ->
       .get() (err, res, body) ->
         if err
           msg.send "Encountered an error :( #{err}"
-        else      
+        else  
           currentBranch = getCurrentBranch(body)
-          if currentBranch == ""
-             msg.send("Did not find job '#{job}'")
+          if currentBranch? 
+             msg.send("current branch is '#{currentBranch}'")
           else
-            msg.send("current branch is " + getCurrentBranch(body))
+             msg.send("Did not find job '#{job}'")
+           
