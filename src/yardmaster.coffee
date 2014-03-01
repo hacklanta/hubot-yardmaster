@@ -16,6 +16,7 @@
 #   hubot (go) build yourself|(go) ship yourself - Rebuilds default branch if set.
 #   hubot list jobs|jenkins list|jobs {job} - Shows all jobs in Jenkins. Filters by job if provided.
 #   hubot build|rebuild {job} - Rebuilds {job}.
+#   hubot enable|disable {job} - Enable or disable {job} on jenkins.
 # 
 # Author: 
 #   hacklanta
@@ -62,11 +63,9 @@ buildJob = (robot, msg) ->
       else if res.statusCode == 200
         buildBranch(robot, msg, job)
   
-  
-
 switchBranch = (robot, msg) ->
   job = msg.match[2]
-  branch = msg.match[3]
+  branch = msg.match[4]
 
   robot.http("#{jenkinsURL}/job/#{job}/config.xml")
     .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
@@ -133,6 +132,22 @@ listJobs = (robot, msg) ->
           #{response}
         """
 
+changeJobState = (robot, msg) ->
+  changeState = msg.match[1]
+  job = msg.match[2]
+
+  robot.http("#{jenkinsURL}/job/#{job}/#{changeState}")
+    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+    .post() (err, res, body) ->
+      if err
+        msg.send "something went wrong! Error: #{err}."
+      else if res.statusCode == 302
+        msg.send "#{job} has been set to #{changeState}."
+      else if res.statusCode == 404
+        msg.send "Job '#{job}' does not exist."
+      else
+        msg.send "Not sure what happened. You should check #{jenkinsURL}/job/#{job}/"
+
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
     switchBranch(robot, msg)
@@ -151,6 +166,9 @@ module.exports = (robot) ->
 
   robot.respond /(build|rebuild) (.+)/i, (msg) ->
     buildJob(robot, msg)
+
+  robot.respond /(disable|enable) (.+)/i, (msg) ->
+    changeJobState(robot, msg)
       
 
 
