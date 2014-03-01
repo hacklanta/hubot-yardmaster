@@ -19,85 +19,86 @@
 
 {parseString} = require 'xml2js'
 
-module.exports = (robot) ->
+jenkinsURL = process.env.HUBOT_JENKINS_URL
+jenkinsUser = process.env.HUBOT_JENKINS_USER
+jenkinsUserAPIKey = process.env.HUBOT_JENKINS_USER_API_KEY
+jenkinsHubotJob = process.env.HUBOT_JENKINS_JOB_NAME || ''
 
-  jenkinsURL = process.env.HUBOT_JENKINS_URL
-  jenkinsUser = process.env.HUBOT_JENKINS_USER
-  jenkinsUserAPIKey = process.env.HUBOT_JENKINS_USER_API_KEY
-  jenkinsHubotJob = process.env.HUBOT_JENKINS_JOB_NAME || ''
-
-  buildBranch = (job, msg, branch = '') ->
-    robot.http("#{jenkinsURL}/job/#{job}/build")
-      .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-      .post() (err, res, body) ->
-        if err
-          msg.send "Encountered an error on build :( #{err}"
-        else if res.statusCode is 201
-          if branch 
-            msg.send "#{job} is building with #{branch}"
-          else
-            msg.send "#{robot.name} is rebuilding."
+buildBranch = (robot, job, msg, branch = '') ->
+  robot.http("#{jenkinsURL}/job/#{job}/build")
+    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+    .post() (err, res, body) ->
+      if err
+        msg.send "Encountered an error on build :( #{err}"
+      else if res.statusCode is 201
+        if branch 
+          msg.send "#{job} is building with #{branch}"
         else
-          msg.send "something went wrong with #{res.statusCode} :(" 
+          msg.send "#{robot.name} is rebuilding."
+      else
+        msg.send "something went wrong with #{res.statusCode} :(" 
 
-  getCurrentBranch = (body) ->
-    branch = ""
-    parseString body, (err, result) ->
-      branch = result?.project?.scm[0]?.branches[0]['hudson.plugins.git.BranchSpec'][0].name[0]
+getCurrentBranch = (body) ->
+  branch = ""
+  parseString body, (err, result) ->
+    branch = result?.project?.scm[0]?.branches[0]['hudson.plugins.git.BranchSpec'][0].name[0]
 
-    branch
-    
-  # Switch Current Branch  
-  robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
-    job = msg.match[2]
-    branch = msg.match[3]
+  branch
 
-    robot.http("#{jenkinsURL}/job/#{job}/config.xml")
-      .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-      .get() (err, res, body) ->
-        if err
-          msg.send "Encountered an error :( #{err}"
-        else
-          # this is a regex replace for the branch name
-          # Spaces below are to keep the xml formatted nicely
-          # TODO: parse as XML and replace string (drop regex)
-          config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
+switchBranch = (robot, msg) ->
+  job = msg.match[2]
+  branch = msg.match[3]
+
+  robot.http("#{jenkinsURL}/job/#{job}/config.xml")
+    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+    .get() (err, res, body) ->
+      if err
+        msg.send "Encountered an error :( #{err}"
+      else
+        # this is a regex replace for the branch name
+        # Spaces below are to keep the xml formatted nicely
+        # TODO: parse as XML and replace string (drop regex)
+        config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
           
-          # try to update config
-          robot.http("#{jenkinsURL}/job/#{job}/config.xml")
-            .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-            .post(config) (err, res, body) ->
-              if err
-                msg.send "Encountered an error :( #{err}"
-              else if res.statusCode is 200
-                # if update successful build branch
-                buildBranch(job, msg, branch)  
-              else if  res.statusCode is 404
-                 msg.send "job '#{job}' not found" 
-              else
-                msg.send "something went wrong :(" 
+        # try to update config
+        robot.http("#{jenkinsURL}/job/#{job}/config.xml")
+          .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+          .post(config) (err, res, body) ->
+            if err
+              msg.send "Encountered an error :( #{err}"
+            else if res.statusCode is 200
+              # if update successful build branch
+              buildBranch(job, msg, branch)  
+            else if  res.statusCode is 404
+               msg.send "job '#{job}' not found" 
+            else
+              msg.send "something went wrong :(" 
+ 
+showCurrentBranch = (robot, msg) ->
+  job = msg.match[2]
   
+  robot.http("#{jenkinsURL}/job/#{job}/config.xml")
+    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+    .get() (err, res, body) ->
+      if err
+       msg.send "Encountered an error :( #{err}"
+      else  
+        currentBranch = getCurrentBranch(body)
+        if currentBranch? 
+           msg.send("current branch is '#{currentBranch}'")
+        else
+           msg.send("Did not find job '#{job}'")
 
-  # Show Current Branch 
+module.exports = (robot) ->             
+  robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
+    switchBranch(robot, msg)
+
   robot.respond /(show\s)?current branch for (.+)/i, (msg) ->
-    job = msg.match[2]
-    
-    robot.http("#{jenkinsURL}/job/#{job}/config.xml")
-      .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-      .get() (err, res, body) ->
-        if err
-          msg.send "Encountered an error :( #{err}"
-        else  
-          currentBranch = getCurrentBranch(body)
-          if currentBranch? 
-             msg.send("current branch is '#{currentBranch}'")
-          else
-             msg.send("Did not find job '#{job}'")
+    showCurrentBranch(robot, msg)
   
-
   robot.respond /(go )?(build yourself)|(go )?(ship yourself)/i, (msg) ->
     if jenkinsHubotJob
-      buildBranch(jenkinsHubotJob, msg)
+      buildBranch(robot, jenkinsHubotJob, msg)
     else
       msg.send("No hubot job found. Set {HUBOT_JENKINS_JOB_NAME} to job name.")
 
