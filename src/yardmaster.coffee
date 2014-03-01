@@ -5,13 +5,14 @@
 #   Nope
 #
 # Configuration:
-#   HUBOT_JENKINS_URL
-#   HUBOT_JENKINS_USER
-#   HUBOT_JENKINS_USER_API_KEY - Not your password. Find at "{HUBOT_JENKINS_URL}/{HUBOT_JENKINS_USER}/configure" 
+#   HUBOT_JENKINS_URL - Jenkins base URL
+#   HUBOT_JENKINS_USER - Jenins admin user
+#   HUBOT_JENKINS_USER_API_KEY - Admin user API key. Not your password. Find at "{HUBOT_JENKINS_URL}/{HUBOT_JENKINS_USER}/configure" 
+#   HUBOT_JENKINS_JOB_NAME - Hubot job name on Jenkins (optional)
 #
 # Commands:
-#   hubot switch|change JOB to BRANCH - Change JOB to BRANCH
-#   hubot (show) current branch for JOB - Shows current branch for JOB
+#   hubot switch|change|build {job} to|with {branch} - Change {job} to {branch} on Jenkins and build
+#   hubot (show) current branch for {job} - Shows current branch for {job} on Jenkins
 # 
 # Author: 
 #   hacklanta
@@ -23,17 +24,19 @@ module.exports = (robot) ->
   jenkinsURL = process.env.HUBOT_JENKINS_URL
   jenkinsUser = process.env.HUBOT_JENKINS_USER
   jenkinsUserAPIKey = process.env.HUBOT_JENKINS_USER_API_KEY
+  jenkinsHubotJob = process.env.HUBOT_JENKINS_JOB_NAME || ''
 
-  buildBranch = (job, branch, msg) ->
-    msg.send "#{job} updated to use brach #{branch}"
-
+  buildBranch = (job, msg, branch = '') ->
     robot.http("#{jenkinsURL}/job/#{job}/build")
       .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
       .post() (err, res, body) ->
         if err
           msg.send "Encountered an error on build :( #{err}"
         else if res.statusCode is 201
-          msg.send "#{job} built with #{branch}"
+          if branch 
+            msg.send "#{job} is building with #{branch}"
+          else
+            msg.send "#{robot.name} is rebuilding."
         else
           msg.send "something went wrong with #{res.statusCode} :(" 
 
@@ -45,7 +48,7 @@ module.exports = (robot) ->
     branch
     
   # Switch Current Branch  
-  robot.respond /(switch|change) (.+) to (.+)/i, (msg) ->
+  robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
     job = msg.match[2]
     branch = msg.match[3]
 
@@ -68,7 +71,7 @@ module.exports = (robot) ->
                 msg.send "Encountered an error :( #{err}"
               else if res.statusCode is 200
                 # if update successful build branch
-                buildBranch(job, branch, msg)  
+                buildBranch(job, msg, branch)  
               else if  res.statusCode is 404
                  msg.send "job '#{job}' not found" 
               else
@@ -90,4 +93,11 @@ module.exports = (robot) ->
              msg.send("current branch is '#{currentBranch}'")
           else
              msg.send("Did not find job '#{job}'")
-           
+  
+
+  robot.respond /(go )?(build yourself)|(go )?(ship yourself)/i, (msg) ->
+    if jenkinsHubotJob
+      buildBranch(jenkinsHubotJob, msg)
+    else
+      msg.send("No hubot job found. Set {HUBOT_JENKINS_JOB_NAME} to job name.")
+
