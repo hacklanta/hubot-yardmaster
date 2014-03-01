@@ -11,8 +11,10 @@
 #   HUBOT_JENKINS_JOB_NAME - Hubot job name on Jenkins (optional)
 #
 # Commands:
-#   hubot switch|change|build {job} to|with {branch} - Change {job} to {branch} on Jenkins and build
-#   hubot (show) current branch for {job} - Shows current branch for {job} on Jenkins
+#   hubot switch|change|build {job} to|with {branch} - Change {job} to {branch} on Jenkins and build.
+#   hubot (show) current branch for {job} - Shows current branch for {job} on Jenkins.
+#   hubot (go) build yourself|(go) ship yourself - Rebuilds default branch if set.
+#   hubot (list jobs|jenkins list|jobs) {job} - Shows all jobs in Jenkins. Filters by job if provided.
 # 
 # Author: 
 #   hacklanta
