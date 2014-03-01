@@ -89,6 +89,29 @@ showCurrentBranch = (robot, msg) ->
         else
            msg.send("Did not find job '#{job}'")
 
+listJobs = (robot, msg) ->
+  robot.http("#{jenkinsURL}/api/json")
+    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+    .get() (err, res, body) ->
+      if err
+        msg.send "Encountered an error :( #{err}"
+      else
+        response = ""
+        jobs = JSON.parse(body).jobs
+        for job in jobs
+          lastBuildState = 
+            if job.color == "blue" 
+              "PASSING" 
+            else 
+              "FAILING"
+
+          response += "#{job.name} is #{lastBuildState}: #{job.url}\n"
+        
+        msg.send """
+          Here are the jobs
+          #{response}
+        """
+
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
     switchBranch(robot, msg)
@@ -101,4 +124,9 @@ module.exports = (robot) ->
       buildBranch(robot, jenkinsHubotJob, msg)
     else
       msg.send("No hubot job found. Set {HUBOT_JENKINS_JOB_NAME} to job name.")
+
+  robot.respond /(list jobs)|(jenkins list)|(jobs)/i, (msg) ->
+    listJobs(robot, msg)
+
+
 
