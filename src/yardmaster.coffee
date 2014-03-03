@@ -56,19 +56,19 @@ ifJobEnabled = (robot, msg, job, callback) ->
           callback()
 
 buildBranch = (robot, msg, job, branch = "") ->
-  post robot, "job/#{job}/build", "", (err, res, body) ->
-    if err
-      msg.send "Encountered an error on build :( #{err}"
-    else if res.statusCode is 201
-      if branch 
-        msg.send "#{job} is building with #{branch}"
-      else if job == jenkinsHubotJob
-        msg.send "I'll Be right back"
+  ifJobEnabled robot, msg, job, (jobStatus) ->
+    post robot, "job/#{job}/build", "", (err, res, body) ->
+      if err
+        msg.send "Encountered an error on build :( #{err}"
+      else if res.statusCode is 201
+        if branch 
+          msg.send "#{job} is building with #{branch}"
+        else if job == jenkinsHubotJob
+          msg.send "I'll Be right back"
+        else
+          msg.send "#{job} is building."
       else
-        msg.send "#{job} is building."
-        
-    else
-      msg.send "something went wrong with #{res.statusCode} :(" 
+        msg.send "something went wrong with #{res.statusCode} :(" 
 
 getCurrentBranch = (body) ->
   branch = ""
@@ -183,7 +183,4 @@ module.exports = (robot) ->
 
   robot.respond /(disable|enable) (.+)/i, (msg) ->
     changeJobState(robot, msg)
-      
-
-
 
