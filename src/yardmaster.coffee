@@ -162,6 +162,23 @@ changeJobState = (robot, msg) ->
     else
       msg.send "Not sure what happened. You should check #{jenkinsURL}/job/#{job}/"
 
+showBuildOuput = (robot, msg) ->
+  lastJob = if msg.match[2] == "build" then "lastBuild" else "lastFailedBuild"
+  job = msg.match[3]
+
+  get robot, "job/#{job}/#{lastJob}/logText/progressiveText", (err, res, body) ->
+    if err
+      msg.send "Encountered an error :( #{err}"
+    else if res.statusCode is 404 
+      msg.send "Did not find job '#{job}."
+    else
+      msg.send """
+        Output is: 
+        #{body}
+      """
+    
+
+
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
     switchBranch(robot, msg)
@@ -183,4 +200,7 @@ module.exports = (robot) ->
 
   robot.respond /(disable|enable) (.+)/i, (msg) ->
     changeJobState(robot, msg)
+  
+  robot.respond /(show )?last (build|failure) for (.+)/i, (msg) ->
+    showBuildOuput(robot, msg)
 
