@@ -40,6 +40,21 @@ post = (robot, queryOptions, postOptions, callback) ->
     .post(postOptions) (err, res, body) ->
       callback(err, res, body)
 
+ifJobEnabled = (robot, msg, job, callback) ->
+  get robot, "job/#{job}/config.xml", (err, res, body) ->
+    if err
+      msg.send "Oops. Error: #{err}"
+    else if res.statusCode is 404
+      msg.send "Job '#{job}' does not exist."
+    else
+      parseString body, (err, result) ->
+        jobStatus = (result?.project?.disabled[0] == 'true')
+        
+        if jobStatus
+          msg.send "No can do. '#{job}' is disabled."
+        else
+          callback()
+
 buildBranch = (robot, msg, job, branch = "") ->
   post robot, "job/#{job}/build", "", (err, res, body) ->
     if err
@@ -75,26 +90,27 @@ switchBranch = (robot, msg) ->
   job = msg.match[2]
   branch = msg.match[4]
 
-  get robot, "job/#{job}/config.xml", (err, res, body) ->
-    if err
-      msg.send "Encountered an error :( #{err}"
-    else
-      # this is a regex replace for the branch name
-      # Spaces below are to keep the xml formatted nicely
-      # TODO: parse as XML and replace string (drop regex)
-      config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
-          
-      # try to update config
-      post robot, "job/#{job}/config.xml", config, (err, res, body) ->
-        if err
-          msg.send "Encountered an error :( #{err}"
-        else if res.statusCode is 200
-          # if update successful build branch
-          buildBranch(robot, msg, job, branch)  
-        else if  res.statusCode is 404
-          msg.send "job '#{job}' not found" 
-        else
-          msg.send "something went wrong :(" 
+  ifJobEnabled robot, msg, job, (jobStatus) ->
+    get robot, "job/#{job}/config.xml", (err, res, body) ->
+      if err
+        msg.send "Encountered an error :( #{err}"
+      else
+        # this is a regex replace for the branch name
+        # Spaces below are to keep the xml formatted nicely
+        # TODO: parse as XML and replace string (drop regex)
+        config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
+
+        # try to update config
+        post robot, "job/#{job}/config.xml", config, (err, res, body) ->
+          if err
+            msg.send "Encountered an error :( #{err}"
+          else if res.statusCode is 200
+            # if update successful build branch
+            buildBranch(robot, msg, job, branch)  
+          else if res.statusCode is 404
+            msg.send "Job '#{job}' not found" 
+          else
+            msg.send "something went wrong :(" 
  
 showCurrentBranch = (robot, msg) ->
   job = msg.match[2]
