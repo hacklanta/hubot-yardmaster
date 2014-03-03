@@ -28,22 +28,32 @@ jenkinsUser = process.env.HUBOT_JENKINS_USER
 jenkinsUserAPIKey = process.env.HUBOT_JENKINS_USER_API_KEY
 jenkinsHubotJob = process.env.HUBOT_JENKINS_JOB_NAME || ''
 
-buildBranch = (robot, msg, job, branch = "") ->
-  robot.http("#{jenkinsURL}/job/#{job}/build")
+get = (robot, queryOptions, callback) ->
+  robot.http("#{jenkinsURL}/#{queryOptions}")
     .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .post() (err, res, body) ->
-      if err
-        msg.send "Encountered an error on build :( #{err}"
-      else if res.statusCode is 201
-        if branch 
-          msg.send "#{job} is building with #{branch}"
-        else if job == jenkinsHubotJob
-          msg.send "I'll Be right back"
-        else
-          msg.send "#{job} is building."
-          
+    .get() (err, res, body) ->
+      callback(err, res, body)
+
+post = (robot, queryOptions, postOptions, callback) ->
+  robot.http("#{jenkinsURL}/#{queryOptions}")
+    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+    .post(postOptions) (err, res, body) ->
+      callback(err, res, body)
+
+buildBranch = (robot, msg, job, branch = "") ->
+  post robot, "job/#{job}/build", "", (err, res, body) ->
+    if err
+      msg.send "Encountered an error on build :( #{err}"
+    else if res.statusCode is 201
+      if branch 
+        msg.send "#{job} is building with #{branch}"
+      else if job == jenkinsHubotJob
+        msg.send "I'll Be right back"
       else
-        msg.send "something went wrong with #{res.statusCode} :(" 
+        msg.send "#{job} is building."
+        
+    else
+      msg.send "something went wrong with #{res.statusCode} :(" 
 
 getCurrentBranch = (body) ->
   branch = ""
@@ -55,98 +65,86 @@ getCurrentBranch = (body) ->
 buildJob = (robot, msg) ->
   job = msg.match[2]
 
-  robot.http("#{jenkinsURL}/job/#{job}/")
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .get() (err, res, body) ->
-      if res.statusCode is 404
-        msg.send "No can do. Didn't find job '#{job}'."
-      else if res.statusCode == 200
-        buildBranch(robot, msg, job)
-  
+  get robot, "job/#{job}/", (err, res, body) ->
+    if res.statusCode is 404
+      msg.send "No can do. Didn't find job '#{job}'."
+    else if res.statusCode == 200
+      buildBranch(robot, msg, job)
+
 switchBranch = (robot, msg) ->
   job = msg.match[2]
   branch = msg.match[4]
 
-  robot.http("#{jenkinsURL}/job/#{job}/config.xml")
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .get() (err, res, body) ->
-      if err
-        msg.send "Encountered an error :( #{err}"
-      else
-        # this is a regex replace for the branch name
-        # Spaces below are to keep the xml formatted nicely
-        # TODO: parse as XML and replace string (drop regex)
-        config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
+  get robot, "job/#{job}/config.xml", (err, res, body) ->
+    if err
+      msg.send "Encountered an error :( #{err}"
+    else
+      # this is a regex replace for the branch name
+      # Spaces below are to keep the xml formatted nicely
+      # TODO: parse as XML and replace string (drop regex)
+      config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
           
-        # try to update config
-        robot.http("#{jenkinsURL}/job/#{job}/config.xml")
-          .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-          .post(config) (err, res, body) ->
-            if err
-              msg.send "Encountered an error :( #{err}"
-            else if res.statusCode is 200
-              # if update successful build branch
-              buildBranch(robot, msg, job, branch)  
-            else if  res.statusCode is 404
-               msg.send "job '#{job}' not found" 
-            else
-              msg.send "something went wrong :(" 
+      # try to update config
+      post robot, "job/#{job}/config.xml", config, (err, res, body) ->
+        if err
+          msg.send "Encountered an error :( #{err}"
+        else if res.statusCode is 200
+          # if update successful build branch
+          buildBranch(robot, msg, job, branch)  
+        else if  res.statusCode is 404
+          msg.send "job '#{job}' not found" 
+        else
+          msg.send "something went wrong :(" 
  
 showCurrentBranch = (robot, msg) ->
   job = msg.match[2]
-  
-  robot.http("#{jenkinsURL}/job/#{job}/config.xml")
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .get() (err, res, body) ->
-      if err
-       msg.send "Encountered an error :( #{err}"
-      else  
-        currentBranch = getCurrentBranch(body)
-        if currentBranch? 
-           msg.send("current branch is '#{currentBranch}'")
-        else
-           msg.send("Did not find job '#{job}'")
+ 
+  get robot, "job/#{job}/config.xml", (err, res, body) ->
+    if err
+      msg.send "Encountered an error :( #{err}"
+    else  
+      currentBranch = getCurrentBranch(body)
+      if currentBranch? 
+         msg.send("current branch is '#{currentBranch}'")
+      else
+         msg.send("Did not find job '#{job}'")
 
 listJobs = (robot, msg) ->
   jobFilter = new RegExp(msg.match[2],"i")
   
-  robot.http("#{jenkinsURL}/api/json")
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .get() (err, res, body) ->
-      if err
-        msg.send "Encountered an error :( #{err}"
-      else
-        response = ""
-        jobs = JSON.parse(body).jobs
-        for job in jobs
-          lastBuildState = if job.color == "blue" then "PASSING" else "FAILING"
+  get robot, "api/json", (err, res, body) ->
+    if err
+      msg.send "Encountered an error :( #{err}"
+    else
+      response = ""
+      jobs = JSON.parse(body).jobs
+      for job in jobs
+        lastBuildState = if job.color == "blue" then "PASSING" else "FAILING"
 
-          if jobFilter?
-            if jobFilter.test job.name
-              response += "#{job.name} is #{lastBuildState}: #{job.url}\n"
-          else
+        if jobFilter?
+          if jobFilter.test job.name
             response += "#{job.name} is #{lastBuildState}: #{job.url}\n"
+        else
+          response += "#{job.name} is #{lastBuildState}: #{job.url}\n"
         
-        msg.send """
-          Here are the jobs
-          #{response}
-        """
+      msg.send """
+        Here are the jobs
+        #{response}
+      """
 
 changeJobState = (robot, msg) ->
   changeState = msg.match[1]
   job = msg.match[2]
 
-  robot.http("#{jenkinsURL}/job/#{job}/#{changeState}")
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .post() (err, res, body) ->
-      if err
-        msg.send "something went wrong! Error: #{err}."
-      else if res.statusCode == 302
-        msg.send "#{job} has been set to #{changeState}."
-      else if res.statusCode == 404
-        msg.send "Job '#{job}' does not exist."
-      else
-        msg.send "Not sure what happened. You should check #{jenkinsURL}/job/#{job}/"
+  post robot, "job/#{job}/#{changeState}", "", (err, res, body) ->
+    if err
+      msg.send "something went wrong! Error: #{err}."
+    else if res.statusCode == 302
+      msg.send "#{job} has been set to #{changeState}."
+    else if res.statusCode == 404
+      msg.send "Job '#{job}' does not exist."
+    else
+      msg.send "Not sure what happened. You should check #{jenkinsURL}/job/#{job}/"
 
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
