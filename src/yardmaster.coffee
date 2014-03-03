@@ -155,7 +155,7 @@ changeJobState = (robot, msg) ->
       msg.send "Not sure what happened. You should check #{jenkinsURL}/job/#{job}/"
 
 showBuildOuput = (robot, msg) ->
-  lastJob = if msg.match[2] == "build" then "lastBuild" else "lastFailedBuild"
+  lastJob = if msg.match[2] == "failure" then "lastFailedBuild" else "lastBuild"
   job = msg.match[3]
 
   get robot, msg, "job/#{job}/#{lastJob}/logText/progressiveText", (res, body) ->
@@ -166,7 +166,20 @@ showBuildOuput = (robot, msg) ->
         Output is: 
         #{body}
       """
-    
+
+showSpecificBuildOutput = (robot, msg) -> 
+  job = msg.match[2]
+  jobNumber = msg.match[3]
+  
+  get robot, msg, "job/#{job}/#{jobNumber}/logText/progressiveText", (res, body) ->
+    if res.statusCode is 404 
+      msg.send "Did not find output for job number '#{jobNumber}' for '#{job}."
+    else
+      msg.send """
+        Output is: 
+        #{body}
+      """
+  
 
 
 module.exports = (robot) ->             
@@ -191,6 +204,8 @@ module.exports = (robot) ->
   robot.respond /(disable|enable) (.+)/i, (msg) ->
     changeJobState(robot, msg)
   
-  robot.respond /(show )?last (build|failure) for (.+)/i, (msg) ->
+  robot.respond /(show|show last|last) (build|failure|output) for (.+)/i, (msg) ->
     showBuildOuput(robot, msg)
-
+  
+  robot.respond /(show|show output|output) for (.+) ([0-9]+)/i, (msg) ->
+    showSpecificBuildOutput(robot, msg)
