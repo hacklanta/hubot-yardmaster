@@ -11,12 +11,14 @@
 #   HUBOT_JENKINS_JOB_NAME - Hubot job name on Jenkins (optional)
 #
 # Commands:
-#   hubot switch|change|build {job} to|with {branch} - Change {job} to {branch} on Jenkins and build.
-#   hubot (show) current branch for {job} - Shows current branch for {job} on Jenkins.
+#   hubot switch|change|build {job} to|with {branch} - Change job to branch on Jenkins and build.
+#   hubot (show) current branch for {job} - Shows current branch for job on Jenkins.
 #   hubot (go) build yourself|(go) ship yourself - Rebuilds default branch if set.
 #   hubot list jobs|jenkins list|all jobs|jobs {job} - Shows all jobs in Jenkins. Filters by job if provided.
-#   hubot build|rebuild {job} - Rebuilds {job}.
-#   hubot enable|disable {job} - Enable or disable {job} on jenkins.
+#   hubot build|rebuild {job} - Rebuilds job.
+#   hubot enable|disable {job} - Enable or disable job on jenkins.
+#   hubot show|show last|last (build|failure|output) for {job} - show output for last job
+#   hubot show|show output|output for {job} {number} - show output job output for number given
 # 
 # Author: 
 #   hacklanta
@@ -163,6 +165,7 @@ showBuildOuput = (robot, msg) ->
       msg.send "Did not find job '#{job}."
     else
       msg.send """
+        #{jenkinsURL}/job/#{job}/#{lastJob}/console
         Output is: 
         #{body}
       """
@@ -176,11 +179,10 @@ showSpecificBuildOutput = (robot, msg) ->
       msg.send "Did not find output for job number '#{jobNumber}' for '#{job}."
     else
       msg.send """
+        #{jenkinsURL}/job/#{job}/#{jobNumber}/console
         Output is: 
         #{body}
       """
-  
-
 
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
