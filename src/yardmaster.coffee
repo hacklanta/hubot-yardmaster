@@ -28,11 +28,14 @@ jenkinsUser = process.env.HUBOT_JENKINS_USER
 jenkinsUserAPIKey = process.env.HUBOT_JENKINS_USER_API_KEY
 jenkinsHubotJob = process.env.HUBOT_JENKINS_JOB_NAME || ''
 
-get = (robot, queryOptions, callback) ->
+get = (robot, msg, queryOptions, callback) ->
   robot.http("#{jenkinsURL}/#{queryOptions}")
     .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
     .get() (err, res, body) ->
-      callback(err, res, body)
+      if err
+        msg.send "Encountered an error :( #{err}"
+      else
+        callback(res, body)
 
 post = (robot, queryOptions, postOptions, callback) ->
   robot.http("#{jenkinsURL}/#{queryOptions}")
@@ -41,10 +44,8 @@ post = (robot, queryOptions, postOptions, callback) ->
       callback(err, res, body)
 
 ifJobEnabled = (robot, msg, job, callback) ->
-  get robot, "job/#{job}/config.xml", (err, res, body) ->
-    if err
-      msg.send "Oops. Error: #{err}"
-    else if res.statusCode is 404
+  get robot, msg, "job/#{job}/config.xml", (res, body) ->
+    if res.statusCode is 404
       msg.send "Job '#{job}' does not exist."
     else
       parseString body, (err, result) ->
@@ -80,7 +81,7 @@ getCurrentBranch = (body) ->
 buildJob = (robot, msg) ->
   job = msg.match[2]
 
-  get robot, "job/#{job}/", (err, res, body) ->
+  get robot, msg, "job/#{job}/", (res, body) ->
     if res.statusCode is 404
       msg.send "No can do. Didn't find job '#{job}'."
     else if res.statusCode == 200
@@ -91,62 +92,53 @@ switchBranch = (robot, msg) ->
   branch = msg.match[4]
 
   ifJobEnabled robot, msg, job, (jobStatus) ->
-    get robot, "job/#{job}/config.xml", (err, res, body) ->
-      if err
-        msg.send "Encountered an error :( #{err}"
-      else
-        # this is a regex replace for the branch name
-        # Spaces below are to keep the xml formatted nicely
-        # TODO: parse as XML and replace string (drop regex)
-        config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
+    get robot, msg, "job/#{job}/config.xml", (res, body) ->
+      # this is a regex replace for the branch name
+      # Spaces below are to keep the xml formatted nicely
+      # TODO: parse as XML and replace string (drop regex)
+      config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
 
-        # try to update config
-        post robot, "job/#{job}/config.xml", config, (err, res, body) ->
-          if err
-            msg.send "Encountered an error :( #{err}"
-          else if res.statusCode is 200
-            # if update successful build branch
-            buildBranch(robot, msg, job, branch)  
-          else if res.statusCode is 404
-            msg.send "Job '#{job}' not found" 
-          else
-            msg.send "something went wrong :(" 
- 
+      # try to update config
+      post robot, "job/#{job}/config.xml", config, (err, res, body) ->
+        if err
+          msg.send "Encountered an error :( #{err}"
+        else if res.statusCode is 200
+          # if update successful build branch
+          buildBranch(robot, msg, job, branch)  
+        else if res.statusCode is 404
+          msg.send "Job '#{job}' not found" 
+        else
+          msg.send "something went wrong :(" 
+
 showCurrentBranch = (robot, msg) ->
   job = msg.match[2]
  
-  get robot, "job/#{job}/config.xml", (err, res, body) ->
-    if err
-      msg.send "Encountered an error :( #{err}"
-    else  
-      currentBranch = getCurrentBranch(body)
-      if currentBranch? 
-         msg.send("current branch is '#{currentBranch}'")
-      else
-         msg.send("Did not find job '#{job}'")
+  get robot, msg, "job/#{job}/config.xml", (res, body) ->
+    currentBranch = getCurrentBranch(body)
+    if currentBranch? 
+       msg.send("current branch is '#{currentBranch}'")
+    else
+       msg.send("Did not find job '#{job}'")
 
 listJobs = (robot, msg) ->
   jobFilter = new RegExp(msg.match[2],"i")
   
-  get robot, "api/json", (err, res, body) ->
-    if err
-      msg.send "Encountered an error :( #{err}"
-    else
-      response = ""
-      jobs = JSON.parse(body).jobs
-      for job in jobs
-        lastBuildState = if job.color == "blue" then "PASSING" else "FAILING"
+  get robot, msg, "api/json", (res, body) ->
+    response = ""
+    jobs = JSON.parse(body).jobs
+    for job in jobs
+      lastBuildState = if job.color == "blue" then "PASSING" else "FAILING"
 
-        if jobFilter?
-          if jobFilter.test job.name
-            response += "#{job.name} is #{lastBuildState}: #{job.url}\n"
-        else
+      if jobFilter?
+        if jobFilter.test job.name
           response += "#{job.name} is #{lastBuildState}: #{job.url}\n"
-        
-      msg.send """
-        Here are the jobs
-        #{response}
-      """
+      else
+        response += "#{job.name} is #{lastBuildState}: #{job.url}\n"
+      
+    msg.send """
+      Here are the jobs
+      #{response}
+    """
 
 changeJobState = (robot, msg) ->
   changeState = msg.match[1]
@@ -166,10 +158,8 @@ showBuildOuput = (robot, msg) ->
   lastJob = if msg.match[2] == "build" then "lastBuild" else "lastFailedBuild"
   job = msg.match[3]
 
-  get robot, "job/#{job}/#{lastJob}/logText/progressiveText", (err, res, body) ->
-    if err
-      msg.send "Encountered an error :( #{err}"
-    else if res.statusCode is 404 
+  get robot, msg, "job/#{job}/#{lastJob}/logText/progressiveText", (res, body) ->
+    if res.statusCode is 404 
       msg.send "Did not find job '#{job}."
     else
       msg.send """
