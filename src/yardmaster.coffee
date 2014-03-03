@@ -14,7 +14,7 @@
 #   hubot switch|change|build {job} to|with {branch} - Change {job} to {branch} on Jenkins and build.
 #   hubot (show) current branch for {job} - Shows current branch for {job} on Jenkins.
 #   hubot (go) build yourself|(go) ship yourself - Rebuilds default branch if set.
-#   hubot list jobs|jenkins list|jobs {job} - Shows all jobs in Jenkins. Filters by job if provided.
+#   hubot list jobs|jenkins list|all jobs|jobs {job} - Shows all jobs in Jenkins. Filters by job if provided.
 #   hubot build|rebuild {job} - Rebuilds {job}.
 #   hubot enable|disable {job} - Enable or disable {job} on jenkins.
 # 
@@ -175,7 +175,7 @@ module.exports = (robot) ->
     else
       msg.send("No hubot job found. Set {HUBOT_JENKINS_JOB_NAME} to job name.")
 
-  robot.respond /(list jobs|jenkins list|jobs)\s*(.*)/i, (msg) ->
+  robot.respond /(list jobs|jenkins list|all jobs|jobs)\s*(.*)/i, (msg) ->
     listJobs(robot, msg)
 
   robot.respond /(build|rebuild) (.+)/i, (msg) ->
