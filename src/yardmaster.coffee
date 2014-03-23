@@ -19,6 +19,8 @@
 #   hubot enable|disable {job} - Enable or disable job on jenkins.
 #   hubot show|show last|last (build|failure|output) for {job} - show output for last job
 #   hubot show|show output|output for {job} {number} - show output job output for number given
+#   hubot set branch message to {message} - set custom message when switching branches on a job
+#   hubot remove branch message - remove custom message. Uses default message.
 # 
 # Author: 
 #   hacklanta
@@ -64,8 +66,14 @@ buildBranch = (robot, msg, job, branch = "") ->
       if err
         msg.send "Encountered an error on build :( #{err}"
       else if res.statusCode is 201
-        if branch 
-          msg.send "#{job} is building with #{branch}"
+        if branch
+          customMessage = robot.brain.get("yardmaster")?["build-message"]
+          if customMessage
+            customMessage = customMessage.replace /job/, job
+            customMessage = customMessage.replace /branch/, branch
+            msg.send customMessage
+          else
+            msg.send "#{job} is building with #{branch}"
         else if job == jenkinsHubotJob
           msg.send "I'll Be right back"
         else
@@ -211,3 +219,13 @@ module.exports = (robot) ->
   
   robot.respond /(show|show output|output) for (.+) ([0-9]+)/i, (msg) ->
     showSpecificBuildOutput(robot, msg)
+  
+  robot.respond /set branch message to (.+)/i, (msg) ->
+    message = msg.match[1]
+    robot.brain.set 'yardmaster', { "build-message": message }
+    msg.send "Custom branch message set."
+
+  robot.respond /remove branch message/i, (msg) ->
+    robot.brain.remove 'yardmaster'
+    msg.send "Custom branch message removed."
+    
