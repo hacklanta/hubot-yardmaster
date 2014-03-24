@@ -270,5 +270,6 @@ module.exports = (robot) ->
     doesJobExist robot, msg, job, (exists) ->
       if exists
         msg.send "Checking on #{job} and its dependencies for you."
-      
+
         trackJob robot, msg, job, (jobStatus) ->
+          msg.send jobStatus
