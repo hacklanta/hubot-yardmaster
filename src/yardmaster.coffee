@@ -60,6 +60,13 @@ ifJobEnabled = (robot, msg, job, callback) ->
         else
           callback()
 
+doesJobExist = (robot, msg, job, callback) ->
+  get robot, msg, "job/#{job}/config.xml", (res, body) ->
+    if res.statusCode is 404
+      msg.send "Job '#{job}' does not exist."
+    else 
+      callback(true)
+
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
     post robot, "job/#{job}/build", "", (err, res, body) ->
