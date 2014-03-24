@@ -21,6 +21,9 @@
 #   hubot show|show output|output for {job} {number} - show output job output for number given
 #   hubot set branch message to {message} - set custom message when switching branches on a job
 #   hubot remove branch message - remove custom message. Uses default message.
+#   hubot show|show last|last (build|failure|output) for {job} - show output for last job.
+#   hubot show|show output|output for {job} {number} - show output job output for number given.
+#   hubot {job} status - show current build status and percent compelete of job and its dependencies.
 # 
 # Author: 
 #   hacklanta
@@ -198,6 +201,32 @@ showSpecificBuildOutput = (robot, msg) ->
         Output is: 
         #{body}
       """
+isJobBuilding = (robot, msg, job, callback) ->
+  get robot, msg, "job/#{job}/lastBuild/api/xml?depth=1", (res, body) ->
+    parseString body, (err, result) ->
+      isBuilding = result?.freeStyleBuild?.building[0] == "true"
+      percentComplete = result?.freeStyleBuild?.executor?[0].progress[0] || 0
+      callback(isBuilding, percentComplete)
+
+getDownstreamJobs = (robot, msg, job, callback) ->
+  get robot, msg, "job/#{job}/api/json", (res, body) ->
+    jobs = JSON.parse(body).downstreamProjects
+    downstreamJobs = []
+    for job in jobs
+      downstreamJobs.push job.name
+    callback(downstreamJobs)
+
+trackJob = (robot, msg, job, callback) ->
+  isJobBuilding robot, msg, job, (isBuilding, percentComplete) ->
+    if isBuilding
+      callback("#{job} is currently building and is #{percentComplete}% complete.")
+    else 
+      callback("#{job} is not building.")
+      getDownstreamJobs robot, msg, job, (downstreamJobs) ->
+        if downstreamJobs
+          for downstreamJob in downstreamJobs
+            trackJob robot, msg, downstreamJob, (callback)
+        
 
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
@@ -235,4 +264,11 @@ module.exports = (robot) ->
   robot.respond /remove branch message/i, (msg) ->
     robot.brain.remove 'yardmaster'
     msg.send "Custom branch message removed."
-    
+  
+  robot.respond /(.+) status/i, (msg) ->
+    job = msg.match[1]
+    doesJobExist robot, msg, job, (exists) ->
+      if exists
+        msg.send "Checking on #{job} and its dependencies for you."
+      
+        trackJob robot, msg, job, (jobStatus) ->
