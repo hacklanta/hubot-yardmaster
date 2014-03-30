@@ -216,16 +216,16 @@ getDownstreamJobs = (robot, msg, job, callback) ->
       downstreamJobs.push job.name
     callback(downstreamJobs)
 
-trackJob = (robot, msg, job) ->
+trackJob = (robot, msg, job, callback) ->
   isJobBuilding robot, msg, job, (isBuilding, percentComplete) ->
     if isBuilding
-      msg.send "#{job} is currently building and is #{percentComplete}% complete."
+       callback("#{job} is currently building and is #{percentComplete}% complete.")
     else 
-      msg.send "#{job} is not building."
       getDownstreamJobs robot, msg, job, (downstreamJobs) ->
         if downstreamJobs
           for downstreamJob in downstreamJobs
             trackJob robot, msg, downstreamJob, (callback)
+      callback("#{job} is not building.")
         
 
 module.exports = (robot) ->             
@@ -271,4 +271,5 @@ module.exports = (robot) ->
       if exists
         msg.send "Checking on #{job} and its dependencies for you."
 
-        trackJob robot, msg, job
+        trackJob robot, msg, job, (callback) ->
+          msg.send callback
