@@ -216,17 +216,24 @@ getDownstreamJobs = (robot, msg, job, callback) ->
       downstreamJobs.push job.name
     callback(downstreamJobs)
 
-trackJob = (robot, msg, job, callback) ->
+trackJobs = (robot, msg, jobs, jobStatus, callback) ->
+  job = jobs.shift()
   isJobBuilding robot, msg, job, (isBuilding, percentComplete) ->
     if isBuilding
-       callback("#{job} is currently building and is #{percentComplete}% complete.")
-    else 
+      jobStatus.push { name: job, percent: percentComplete }
+      callback(jobStatus)
+    else
       getDownstreamJobs robot, msg, job, (downstreamJobs) ->
-        if downstreamJobs
-          for downstreamJob in downstreamJobs
-            trackJob robot, msg, downstreamJob, (callback)
-      callback("#{job} is not building.")
-        
+        if downstreamJobs.length
+          jobs = jobs.concat(downstreamJobs)
+          trackJobs robot, msg, jobs, jobStatus, (callback)
+        else if jobs.length
+           trackJobs robot, msg, jobs, jobStatus, (callback)
+        else 
+          jobStatus.push { name: job }
+          callback(jobStatus)
+
+        jobStatus.push { name: job }
 
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
@@ -271,5 +278,12 @@ module.exports = (robot) ->
       if exists
         msg.send "Checking on #{job} and its dependencies for you."
 
-        trackJob robot, msg, job, (callback) ->
-          msg.send callback
+        trackJobs robot, msg, [job], [], (callback) ->
+          # is currently building and is #{percentComplete}% complete."
+          jobStatus = ""
+          callback.map (jobEntry) -> 
+            if jobEntry.percent
+              jobStatus = jobStatus + "#{jobEntry.name} is building and is #{jobEntry.percent}% complete.\n"
+            else
+              jobStatus = jobStatus + "#{jobEntry.name} is not building.\n"
+          msg.send jobStatus
