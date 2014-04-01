@@ -12,7 +12,7 @@
 #
 # Commands:
 #   hubot switch|change|build {job} to|with {branch} - Change job to branch on Jenkins and build.
-#   hubot (show) current branch for {job} - Shows current branch for job on Jenkins.
+#   hubot (show|current|show current) branch for {job} - Shows current branch for job on Jenkins.
 #   hubot (go) build yourself|(go) ship yourself - Rebuilds default branch if set.
 #   hubot list jobs|jenkins list|all jobs|jobs {job} - Shows all jobs in Jenkins. Filters by job if provided.
 #   hubot build|rebuild {job} - Rebuilds job.
@@ -232,7 +232,7 @@ module.exports = (robot) ->
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
     switchBranch(robot, msg)
 
-  robot.respond /(show\s)?current branch for (.+)/i, (msg) ->
+  robot.respond /(show\s|current\s|show current\s)?branch for (.+)/i, (msg) ->
     showCurrentBranch(robot, msg)
   
   robot.respond /(go )?(build yourself)|(go )?(ship yourself)/i, (msg) ->
