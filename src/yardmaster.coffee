@@ -322,3 +322,10 @@ module.exports = (robot) ->
 
   robot.respond /set job repos/i, (msg) ->
     setJobRepos robot, msg
+  
+  robot.respond /remove job repos/i, (msg) ->
+    removeJobRepos robot, msg
+    
+  robot.respond /(reset|refresh) job repos/i, (msg) ->
+    removeJobRepos robot, msg
+    setJobRepos robot, msg
