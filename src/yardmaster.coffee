@@ -64,11 +64,16 @@ ifJobEnabled = (robot, msg, job, callback) ->
           callback()
 
 doesJobExist = (robot, msg, job, callback) ->
-  get robot, msg, "job/#{job}/config.xml", (res, body) ->
-    if res.statusCode is 404
-      msg.send "Job '#{job}' does not exist."
-    else 
-      callback(true)
+  yardmaster = robot.brain.get 'yardmaster' || {}
+  if yardmaster.jobRepos
+    console.log yardmaster.jobRepos
+    console.log yardmaster.jobRepos.filter (potentialJob) -> potentialJob == job
+  else
+    get robot, msg, "job/#{job}/config.xml", (res, body) ->
+      if res.statusCode is 404
+        msg.send "Job '#{job}' does not exist."
+      else 
+        callback(true)
 
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
