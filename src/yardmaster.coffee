@@ -275,8 +275,9 @@ removeJobRepos = (robot, msg) ->
 
 checkBranchName = (robot, msg, job, branch, callback) ->
   yardmaster = robot.brain.get 'yardmaster' || {}
-  if yardmaster.jobRepos? && (doesJobExist robot, msg, job, (exists) -> exists) 
-    currentJob = yardmaster.jobRepos.filter (potentialJob) -> potentialJob.job == job
+  currentJob = yardmaster.jobRepos?.filter (potentialJob) -> potentialJob.job == job
+  
+  if (doesJobExist robot, msg, job, (exists) -> exists) && githubToken.length && currentJob[0].repo?
     owner = ///
     .*\:(.*)/
     ///.exec currentJob[0].repo
@@ -285,7 +286,6 @@ checkBranchName = (robot, msg, job, branch, callback) ->
     .*/(.*)\..*
     ///.exec currentJob[0].repo
   
-  if githubToken.length
     robot.http("https://api.github.com/repos/#{owner[1]}/#{repo[1]}/branches/#{branch}")
       .header('Authorization', "token #{githubToken}")
       .get() (err, res, body) ->
