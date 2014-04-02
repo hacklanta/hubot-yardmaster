@@ -9,6 +9,7 @@
 #   HUBOT_JENKINS_USER - Jenins admin user
 #   HUBOT_JENKINS_USER_API_KEY - Admin user API key. Not your password. Find at "{HUBOT_JENKINS_URL}/{HUBOT_JENKINS_USER}/configure" 
 #   HUBOT_JENKINS_JOB_NAME - Hubot job name on Jenkins (optional)
+#   GITHUB_TOKEN - Github API Auth token (optional)
 #
 # Commands:
 #   hubot switch|change|build {job} to|with {branch} - Change job to branch on Jenkins and build.
@@ -24,6 +25,9 @@
 #   hubot show|show last|last (build|failure|output) for {job} - show output for last job.
 #   hubot show|show output|output for {job} {number} - show output job output for number given.
 #   hubot {job} status - show current build status and percent compelete of job and its dependencies.
+#   hubot set job repos - Will find repos of jobs in jenkins and use to validate branch names if github token provided.
+#   hubot remove job repos - Will remove job repos from memory.
+#   hubot (refresh|reset) job repos - Will remove and re-add job repos to memory.
 # 
 # Author: 
 #   hacklanta
