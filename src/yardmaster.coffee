@@ -251,6 +251,14 @@ setJobRepos = (robot, msg) ->
       robot.brain.set 'yardmaster', yardmaster
       msg.send "Job repos set"
 
+removeJobRepos = (robot, msg) ->
+  yardmaster = robot.brain.get('yardmaster') || {}
+  if yardmaster.jobRepos?
+    delete yardmaster.jobRepos
+    robot.brain.set 'yardmaster', yardmaster
+    msg.send "Job repos deleted"
+  else 
+    msg.send "No job repos set. Nothing to delete."
     
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
@@ -289,9 +297,14 @@ module.exports = (robot) ->
     msg.send "Custom branch message set."
 
   robot.respond /remove branch message/i, (msg) ->
-    robot.brain.remove 'yardmaster'
-    msg.send "Custom branch message removed."
-  
+    yardmaster = robot.brain.get('yardmaster') || {}
+    if yardmaster.buildMessage?
+      delete yardmaster.buildMessage
+      robot.brain.set 'yardmaster', yardmaster
+      msg.send "Custom branch message removed."
+    else 
+      msg.send "No custom branch message set. Nothing to delete."
+      
   robot.respond /(.+) status/i, (msg) ->
     job = msg.match[1]
     doesJobExist robot, msg, job, (exists) ->
