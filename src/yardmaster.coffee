@@ -235,6 +235,15 @@ trackJobs = (robot, msg, jobs, jobStatus, callback) ->
 
         jobStatus.push { name: job }
 
+setJobRepos = (robot, msg, callback) ->
+  get robot, msg, "api/xml?tree=jobs[name,scm[*[*]]]", (res, body) ->
+    parseString body, (err, result) ->
+      console.log result?.hudson?.job
+      console.log result?.hudson?.scm?.userRemoteConfig
+      # jobName = (result?.project?.disabled[0] == 'true')
+#       repo =  (result?.project?.disabled[0] == 'true')
+#       robot.brain.set 'yardmaster', { "job-name": jobName, "repo": repo }
+    
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
     switchBranch(robot, msg)
@@ -279,7 +288,6 @@ module.exports = (robot) ->
         msg.send "Checking on #{job} and its dependencies for you."
 
         trackJobs robot, msg, [job], [], (callback) ->
-          # is currently building and is #{percentComplete}% complete."
           jobStatus = ""
           callback.map (jobEntry) -> 
             if jobEntry.percent
@@ -287,3 +295,7 @@ module.exports = (robot) ->
             else
               jobStatus = jobStatus + "#{jobEntry.name} is not building.\n"
           msg.send jobStatus
+
+  robot.respond /set job repos/i, (msg) ->
+    setJobRepos robot, msg, (callback) ->
+
