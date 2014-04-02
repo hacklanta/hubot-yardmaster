@@ -34,6 +34,7 @@ jenkinsURL = process.env.HUBOT_JENKINS_URL
 jenkinsUser = process.env.HUBOT_JENKINS_USER
 jenkinsUserAPIKey = process.env.HUBOT_JENKINS_USER_API_KEY
 jenkinsHubotJob = process.env.HUBOT_JENKINS_JOB_NAME || ''
+githubToken = process.env.GITHUB_TOKEN || ''
 
 get = (robot, msg, queryOptions, callback) ->
   robot.http("#{jenkinsURL}/#{queryOptions}")
@@ -120,23 +121,24 @@ switchBranch = (robot, msg) ->
   branch = msg.match[4]
 
   ifJobEnabled robot, msg, job, (jobStatus) ->
-    get robot, msg, "job/#{job}/config.xml", (res, body) ->
-      # this is a regex replace for the branch name
-      # Spaces below are to keep the xml formatted nicely
-      # TODO: parse as XML and replace string (drop regex)
-      config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
-
-      # try to update config
-      post robot, "job/#{job}/config.xml", config, (err, res, body) ->
-        if err
-          msg.send "Encountered an error :( #{err}"
-        else if res.statusCode is 200
-          # if update successful build branch
-          buildBranch(robot, msg, job, branch)  
-        else if res.statusCode is 404
-          msg.send "Job '#{job}' not found" 
-        else
-          msg.send "something went wrong :(" 
+    checkBranchName robot, msg, job, branch, (branchValid) ->
+      get robot, msg, "job/#{job}/config.xml", (res, body) ->
+        # this is a regex replace for the branch name
+        # Spaces below are to keep the xml formatted nicely
+        # TODO: parse as XML and replace string (drop regex)
+        config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
+  
+        # try to update config
+        post robot, "job/#{job}/config.xml", config, (err, res, body) ->
+          if err
+            msg.send "Encountered an error :( #{err}"
+          else if res.statusCode is 200
+            # if update successful build branch
+            buildBranch(robot, msg, job, branch)  
+          else if res.statusCode is 404
+            msg.send "Job '#{job}' not found" 
+          else
+            msg.send "something went wrong :(" 
 
 showCurrentBranch = (robot, msg) ->
   job = msg.match[2]
@@ -267,7 +269,30 @@ removeJobRepos = (robot, msg) ->
     msg.send "Job repos deleted"
   else 
     msg.send "No job repos set. Nothing to delete."
-    
+
+checkBranchName = (robot, msg, job, branch, callback) ->
+  yardmaster = robot.brain.get 'yardmaster' || {}
+  if yardmaster.jobRepos? && (doesJobExist robot, msg, job, (exists) -> exists) 
+    currentJob = yardmaster.jobRepos.filter (potentialJob) -> potentialJob.job == job
+    owner = ///
+    .*\:(.*)/
+    ///.exec currentJob[0].repo
+
+    repo = ///
+    .*/(.*)\..*
+    ///.exec currentJob[0].repo
+
+  robot.http("https://api.github.com/repos/#{owner[1]}/#{repo[1]}/branches/#{branch}")
+    .header('Authorization', "token #{githubToken}")
+    .get() (err, res, body) ->
+      if err
+        msg.send "Encountered an error :( #{err}"
+      else
+        if JSON.parse(body).name
+          callback()
+        else
+          msg.send "Branch name '#{branch}' is not valid for repo '#{repo[1]}'."
+          
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
     switchBranch(robot, msg)
