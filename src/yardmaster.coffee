@@ -257,8 +257,7 @@ setJobRepos = (robot, msg) ->
       for job in jobs
         jobName = job.name?[0]
         repoURL = job.scm?[0].userRemoteConfig?[0].url?[0]
-        if repoURL 
-          jobRepos.push "job": jobName, "repo": repoURL
+        jobRepos.push "job": jobName, "repo": repoURL
       yardmaster = robot.brain.get('yardmaster') || {}
       yardmaster.jobRepos ||= {}
       yardmaster.jobRepos = jobRepos
