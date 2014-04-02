@@ -235,14 +235,22 @@ trackJobs = (robot, msg, jobs, jobStatus, callback) ->
 
         jobStatus.push { name: job }
 
-setJobRepos = (robot, msg, callback) ->
+setJobRepos = (robot, msg) ->
   get robot, msg, "api/xml?tree=jobs[name,scm[*[*]]]", (res, body) ->
     parseString body, (err, result) ->
-      console.log result?.hudson?.job
-      console.log result?.hudson?.scm?.userRemoteConfig
-      # jobName = (result?.project?.disabled[0] == 'true')
-#       repo =  (result?.project?.disabled[0] == 'true')
-#       robot.brain.set 'yardmaster', { "job-name": jobName, "repo": repo }
+      jobs = result?.hudson?.job
+      jobRepos = []
+      for job in jobs
+        jobName = job.name?[0]
+        repoURL = job.scm?[0].userRemoteConfig?[0].url?[0]
+        if repoURL 
+          jobRepos.push "job-name": jobName, "repo": repoURL
+      yardmaster = robot.brain.get('yardmaster') || {}
+      yardmaster.jobRepos ||= {}
+      yardmaster.jobRepos = jobRepos
+      robot.brain.set 'yardmaster', yardmaster
+      msg.send "Job repos set"
+
     
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
@@ -274,7 +282,10 @@ module.exports = (robot) ->
   
   robot.respond /set branch message to (.+)/i, (msg) ->
     message = msg.match[1]
-    robot.brain.set 'yardmaster', { "build-message": message }
+    yardmaster = robot.brain.get('yardmaster') || {}
+    yardmaster.buildMessage ||= {}
+    yardmaster.buildMessage = message
+    robot.brain.set 'yardmaster', yardmaster
     msg.send "Custom branch message set."
 
   robot.respond /remove branch message/i, (msg) ->
@@ -297,5 +308,4 @@ module.exports = (robot) ->
           msg.send jobStatus
 
   robot.respond /set job repos/i, (msg) ->
-    setJobRepos robot, msg, (callback) ->
-
+    setJobRepos robot, msg
