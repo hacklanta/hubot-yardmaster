@@ -281,17 +281,20 @@ checkBranchName = (robot, msg, job, branch, callback) ->
     repo = ///
     .*/(.*)\..*
     ///.exec currentJob[0].repo
-
-  robot.http("https://api.github.com/repos/#{owner[1]}/#{repo[1]}/branches/#{branch}")
-    .header('Authorization', "token #{githubToken}")
-    .get() (err, res, body) ->
-      if err
-        msg.send "Encountered an error :( #{err}"
-      else
-        if JSON.parse(body).name
-          callback()
+  
+  if githubToken.length
+    robot.http("https://api.github.com/repos/#{owner[1]}/#{repo[1]}/branches/#{branch}")
+      .header('Authorization', "token #{githubToken}")
+      .get() (err, res, body) ->
+        if err
+          msg.send "Encountered an error :( #{err}"
         else
-          msg.send "Branch name '#{branch}' is not valid for repo '#{repo[1]}'."
+          if JSON.parse(body).name
+            callback()
+          else
+            msg.send "Branch name '#{branch}' is not valid for repo '#{repo[1]}'."
+  else 
+    callback()
           
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
