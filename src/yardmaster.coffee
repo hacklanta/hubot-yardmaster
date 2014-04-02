@@ -65,9 +65,12 @@ ifJobEnabled = (robot, msg, job, callback) ->
 
 doesJobExist = (robot, msg, job, callback) ->
   yardmaster = robot.brain.get 'yardmaster' || {}
-  if yardmaster.jobRepos
-    console.log yardmaster.jobRepos
-    console.log yardmaster.jobRepos.filter (potentialJob) -> potentialJob == job
+  if yardmaster.jobRepos?
+    possibleJob = yardmaster.jobRepos.filter (potentialJob) -> potentialJob.job == job
+    if possibleJob.length
+       callback(true)
+    else
+      msg.send "Job '#{job}' does not exist. If the job does exist, you need to update your job repos. Run 'refresh job repos' and then try again."
   else
     get robot, msg, "job/#{job}/config.xml", (res, body) ->
       if res.statusCode is 404
