@@ -25,9 +25,8 @@
 #   hubot show|show last|last (build|failure|output) for {job} - show output for last job.
 #   hubot show|show output|output for {job} {number} - show output job output for number given.
 #   hubot {job} status - show current build status and percent compelete of job and its dependencies.
-#   hubot set job repos - Will find repos of jobs in jenkins and use to validate branch names if github token provided.
+#   hubot set job repos - Pulls list of jobs and repos from jenkins and places in memory to validate branch names if github token provided.
 #   hubot remove job repos - Will remove job repos from memory.
-#   hubot (refresh|reset) job repos - Will remove and re-add job repos to memory.
 # 
 # Author: 
 #   hacklanta
@@ -75,7 +74,7 @@ doesJobExist = (robot, msg, job, callback) ->
     if possibleJob.length
        callback(true)
     else
-      msg.send "Job '#{job}' does not exist. If the job does exist, you need to update your job repos. Run 'refresh job repos' and then try again."
+      msg.send "Job '#{job}' does not exist. If the job does exist, you need to update your job repos. Run 'set job repos' and then try again."
   else
     get robot, msg, "job/#{job}/config.xml", (res, body) ->
       if res.statusCode is 404
@@ -336,8 +335,8 @@ module.exports = (robot) ->
     msg.send "Custom branch message set."
 
   robot.respond /remove branch message/i, (msg) ->
-    yardmaster = robot.brain.get('yardmaster') || {}
-    if yardmaster.buildMessage?
+    yardmaster = robot.brain.get('yardmaster')
+    if yardmaster?.buildMessage?
       delete yardmaster.buildMessage
       robot.brain.set 'yardmaster', yardmaster
       msg.send "Custom branch message removed."
@@ -360,11 +359,8 @@ module.exports = (robot) ->
           msg.send jobStatus
 
   robot.respond /set job repos/i, (msg) ->
+    removeJobRepos robot, msg
     setJobRepos robot, msg
   
   robot.respond /remove job repos/i, (msg) ->
     removeJobRepos robot, msg
-    
-  robot.respond /(reset|refresh) job repos/i, (msg) ->
-    removeJobRepos robot, msg
-    setJobRepos robot, msg
