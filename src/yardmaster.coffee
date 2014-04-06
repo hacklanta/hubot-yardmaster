@@ -276,27 +276,28 @@ checkBranchName = (robot, msg, job, branch, callback) ->
   yardmaster = robot.brain.get 'yardmaster' || {}
   currentJob = yardmaster?.jobRepos?.filter (potentialJob) -> potentialJob.job == job
   
-  if (doesJobExist robot, msg, job, (exists) -> exists) && githubToken.length && currentJob?[0].repo?
-    owner = ///
-    .*\:(.*)/
-    ///.exec currentJob[0].repo
+  doesJobExist robot, msg, job, (exists) -> 
+    if githubToken.length && currentJob?[0].repo?
+      owner = ///
+      .*\:(.*)/
+      ///.exec currentJob[0].repo
 
-    repo = ///
-    .*/(.*)\..*
-    ///.exec currentJob[0].repo
-  
-    robot.http("https://api.github.com/repos/#{owner[1]}/#{repo[1]}/branches/#{branch}")
-      .header('Authorization', "token #{githubToken}")
-      .get() (err, res, body) ->
-        if err
-          msg.send "Encountered an error :( #{err}"
-        else
-          if JSON.parse(body).name
-            callback()
+      repo = ///
+      .*/(.*)\..*
+      ///.exec currentJob[0].repo
+      
+      robot.http("https://api.github.com/repos/#{owner[1]}/#{repo[1]}/branches/#{branch}")
+        .header('Authorization', "token #{githubToken}")
+        .get() (err, res, body) ->
+          if err
+            msg.send "Encountered an error :( #{err}"
           else
-            msg.send "Branch name '#{branch}' is not valid for repo '#{repo[1]}'."
-  else 
-    callback()
+            if JSON.parse(body).name
+              callback()
+            else
+              msg.send "Branch name '#{branch}' is not valid for repo '#{repo[1]}'."
+    else 
+      callback()
           
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
