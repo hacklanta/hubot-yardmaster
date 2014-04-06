@@ -69,7 +69,7 @@ ifJobEnabled = (robot, msg, job, callback) ->
 
 doesJobExist = (robot, msg, job, callback) ->
   yardmaster = robot.brain.get 'yardmaster' || {}
-  if yardmaster.jobRepos?
+  if yardmaster?.jobRepos?
     possibleJob = yardmaster.jobRepos.filter (potentialJob) -> potentialJob.job == job
     if possibleJob.length
        callback(true)
@@ -274,9 +274,9 @@ removeJobRepos = (robot, msg) ->
 
 checkBranchName = (robot, msg, job, branch, callback) ->
   yardmaster = robot.brain.get 'yardmaster' || {}
-  currentJob = yardmaster.jobRepos?.filter (potentialJob) -> potentialJob.job == job
+  currentJob = yardmaster?.jobRepos?.filter (potentialJob) -> potentialJob.job == job
   
-  if (doesJobExist robot, msg, job, (exists) -> exists) && githubToken.length && currentJob[0].repo?
+  if (doesJobExist robot, msg, job, (exists) -> exists) && githubToken.length && currentJob?[0].repo?
     owner = ///
     .*\:(.*)/
     ///.exec currentJob[0].repo
