@@ -67,22 +67,20 @@ ifJobEnabled = (robot, msg, job, callback) ->
         else
           callback()
 
-doesJobExist = (robot, msg, job) ->
+doesJobExist = (robot, msg, job, callback) ->
   yardmaster = robot.brain.get 'yardmaster' || {}
   if yardmaster.jobRepos?
     possibleJob = yardmaster.jobRepos.filter (potentialJob) -> potentialJob.job == job
     if possibleJob.length
-       true
+       callback(true)
     else
       msg.send "Job '#{job}' does not exist. If the job does exist, you need to update your job repos. Run 'set job repos' and then try again."
-      false
   else
     get robot, msg, "job/#{job}/config.xml", (res, body) ->
       if res.statusCode is 404
         msg.send "Job '#{job}' does not exist."
-        false
       else 
-        true
+        callback(true)
 
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
@@ -278,7 +276,7 @@ checkBranchName = (robot, msg, job, branch, callback) ->
   yardmaster = robot.brain.get 'yardmaster' || {}
   currentJob = yardmaster.jobRepos?.filter (potentialJob) -> potentialJob.job == job
   
-  if (doesJobExist robot, msg, job) && githubToken.length && currentJob[0].repo?
+  if (doesJobExist robot, msg, job, (exists) -> exists) && githubToken.length && currentJob[0].repo?
     owner = ///
     .*\:(.*)/
     ///.exec currentJob[0].repo
@@ -347,17 +345,18 @@ module.exports = (robot) ->
       
   robot.respond /(.+) status/i, (msg) ->
     job = msg.match[1]
-    if (doesJobExist robot, msg, job)
-      msg.send "Checking on #{job} and its dependencies for you."
+    doesJobExist robot, msg, job, (exists) ->
+      if exists
+        msg.send "Checking on #{job} and its dependencies for you."
 
-      trackJobs robot, msg, [job], [], (callback) ->
-        jobStatus = ""
-        callback.map (jobEntry) -> 
-          if jobEntry.percent
-            jobStatus = jobStatus + "#{jobEntry.name} is building and is #{jobEntry.percent}% complete.\n"
-          else
-            jobStatus = jobStatus + "#{jobEntry.name} is not building.\n"
-        msg.send jobStatus
+        trackJobs robot, msg, [job], [], (callback) ->
+          jobStatus = ""
+          callback.map (jobEntry) -> 
+            if jobEntry.percent
+              jobStatus = jobStatus + "#{jobEntry.name} is building and is #{jobEntry.percent}% complete.\n"
+            else
+              jobStatus = jobStatus + "#{jobEntry.name} is not building.\n"
+          msg.send jobStatus
 
   robot.respond /set job repos/i, (msg) ->
     removeJobRepos robot, msg
