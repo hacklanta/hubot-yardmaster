@@ -318,7 +318,7 @@ deployBranchToJob = (robot, msg) ->
       body = {
         "base": branch,
         "head": deployBranch,
-        "commit_message": "#{deployBranch} merged into #{branch} by Alan!"
+        "commit_message": "#{deployBranch} merged into #{branch} by #{robot.name}!"
       }
       postBody = JSON.stringify(body)
 
