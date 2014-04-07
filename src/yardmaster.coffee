@@ -143,15 +143,13 @@ switchBranch = (robot, msg) ->
           else
             msg.send "something went wrong :(" 
 
-showCurrentBranch = (robot, msg) ->
-  job = msg.match[2]
- 
+findCurrentBranch = (robot, msg, job, callback) ->
   get robot, msg, "job/#{job}/config.xml", (res, body) ->
     currentBranch = getCurrentBranch(body)
     if currentBranch? 
-       msg.send("current branch is '#{currentBranch}'")
+       callback(currentBranch)
     else
-       msg.send("Did not find job '#{job}'")
+       msg.send "Did not find current branch for #{job}."
 
 listJobs = (robot, msg) ->
   jobFilter = new RegExp(msg.match[2],"i")
@@ -304,7 +302,10 @@ module.exports = (robot) ->
     switchBranch(robot, msg)
 
   robot.respond /(show\s|current\s|show current\s)?branch for (.+)/i, (msg) ->
-    showCurrentBranch(robot, msg)
+    job = msg.match[2]
+    doesJobExist robot, msg, job, (exists) ->
+      findCurrentBranch robot, msg, job, (branch) ->
+        msg.send "Current branch for #{job} is #{branch}."
   
   robot.respond /(go )?(build yourself)|(go )?(ship yourself)/i, (msg) ->
     if jenkinsHubotJob
