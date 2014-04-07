@@ -270,19 +270,24 @@ removeJobRepos = (robot, msg) ->
   else 
     msg.send "No job repos set. Nothing to delete."
 
+getOwnerAndRepoForRepoURL = (repoURL) ->
+  owner = ///
+    .*\:(.*)/
+    ///.exec repoURL
+
+  repo = ///
+    .*/(.*)\..*
+    ///.exec repoURL
+  
+  [owner, repo]
+
 checkBranchName = (robot, msg, job, branch, callback) ->
   yardmaster = robot.brain.get 'yardmaster' || {}
   currentJob = yardmaster?.jobRepos?.filter (potentialJob) -> potentialJob.job == job
   
   doesJobExist robot, msg, job, (exists) -> 
     if githubToken.length && currentJob?[0].repo?
-      owner = ///
-      .*\:(.*)/
-      ///.exec currentJob[0].repo
-
-      repo = ///
-      .*/(.*)\..*
-      ///.exec currentJob[0].repo
+      [owner, repo] = getOwnerAndRepoForRepoURL currentJob[0].repo
       
       robot.http("https://api.github.com/repos/#{owner[1]}/#{repo[1]}/branches/#{branch}")
         .header('Authorization', "token #{githubToken}")
