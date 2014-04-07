@@ -302,6 +302,20 @@ checkBranchName = (robot, msg, job, branch, callback) ->
     else 
       callback()
           
+setBuildJob = (robot, msg) ->
+  yardmaster = robot.brain.get('yardmaster') || {}
+  yardmaster.deploymentJob ||= []
+  buildName = msg.match[1]
+  buildJob = msg.match[2]
+  
+  doesJobExist robot, msg, buildJob, (exists) ->
+    existingJobs = yardmaster.deploymentJob?.filter (potentialJob) -> potentialJob.name != buildName
+    if existingJobs?
+      yardmaster.deploymentJob = existingJobs  
+    yardmaster.deploymentJob.push { name: buildName, job: buildJob }
+    robot.brain.set 'yardmaster', yardmaster
+    msg.send "#{buildName} set to #{buildJob}."
+    
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
     switchBranch(robot, msg)
@@ -371,3 +385,12 @@ module.exports = (robot) ->
   
   robot.respond /remove job repos/i, (msg) ->
     removeJobRepos robot, msg
+  
+  robot.respond /set (.+) job to (.+)/i, (msg) ->
+    setBuildJob robot, msg
+
+  robot.respond /remove (.+) from deployments/i, (msg) ->
+    yardmaster = robot.brain.get('yardmaster')
+    existingDemployments = yardmaster?.deploymentJob?.filter (existingJob) -> existingJob.name != msg.match[1]
+    robot.brain.set 'yardmaster', yardmaster
+    msg.send "Removed #{msg.match[1]} from deployment jobs."
