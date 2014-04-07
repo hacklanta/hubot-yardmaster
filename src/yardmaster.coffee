@@ -302,6 +302,41 @@ checkBranchName = (robot, msg, job, branch, callback) ->
     else 
       callback()
           
+deployBranchToJob = (robot, msg) ->
+  deployBranch = msg.match[2]
+  deployName = msg.match[3]
+  yardmaster = robot.brain.get('yardmaster') || {}
+  
+  deployJob = yardmaster?.buildJob?.filter (potentialJob) -> potentialJob.name == deployName
+  knownJob = yardmaster?.jobRepos?.filter (potentialJob) -> potentialJob.job == deployJob?[0].job
+  repoURL = knownJob?[0].repo
+  
+  if deployJob.length && repoURL?
+    [owner, repo] = getOwnerAndRepoForRepoURL repoURL
+    
+    findCurrentBranch robot, msg, deployJob[0].job, (branch) ->
+      body = {
+        "base": branch,
+        "head": deployBranch,
+        "commit_message": "#{deployBranch} merged into #{branch} by Alan!"
+      }
+      postBody = JSON.stringify(body)
+
+      robot.http("https://api.github.com/repos/#{owner[1]}/#{repo[1]}/merges")
+        .header('Authorization', "token #{githubToken}")
+        .post(postBody) (err, res, body) ->
+          if res.statusCode == 201
+            msg.send "Congrats! #{deployBranch} was merged into #{deployName} successfully."
+          else
+            msg.send """
+              Something went wrong :(
+              Status code is: #{res.statusCode}
+              Check https://developer.github.com/v3/repos/merging/ to see what #{res.statusCode} means.
+              """
+  else
+    msg.send "Did not find '#{deployJob}' in list of known deployment targets."
+      
+
 setBuildJob = (robot, msg) ->
   yardmaster = robot.brain.get('yardmaster') || {}
   yardmaster.deploymentJob ||= []
@@ -394,3 +429,6 @@ module.exports = (robot) ->
     existingDemployments = yardmaster?.deploymentJob?.filter (existingJob) -> existingJob.name != msg.match[1]
     robot.brain.set 'yardmaster', yardmaster
     msg.send "Removed #{msg.match[1]} from deployment jobs."
+     
+  robot.respond /(deploy|merge|ship) (.+) to (.+)/i, (msg) -> 
+    deployBranchToJob robot, msg
