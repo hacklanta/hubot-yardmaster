@@ -9,6 +9,7 @@
 #   HUBOT_JENKINS_USER - Jenins admin user
 #   HUBOT_JENKINS_USER_API_KEY - Admin user API key. Not your password. Find at "{HUBOT_JENKINS_URL}/{HUBOT_JENKINS_USER}/configure" 
 #   HUBOT_JENKINS_JOB_NAME - Hubot job name on Jenkins (optional)
+#   GITHUB_TOKEN - Github API Auth token (optional)
 #
 # Commands:
 #   hubot switch|change|build {job} to|with {branch} - Change job to branch on Jenkins and build.
@@ -24,6 +25,8 @@
 #   hubot show|show last|last (build|failure|output) for {job} - show output for last job.
 #   hubot show|show output|output for {job} {number} - show output job output for number given.
 #   hubot {job} status - show current build status and percent compelete of job and its dependencies.
+#   hubot set job repos - Pulls list of jobs and repos from jenkins and places in memory to validate branch names if github token provided.
+#   hubot remove job repos - Will remove job repos from memory.
 # 
 # Author: 
 #   hacklanta
@@ -34,6 +37,7 @@ jenkinsURL = process.env.HUBOT_JENKINS_URL
 jenkinsUser = process.env.HUBOT_JENKINS_USER
 jenkinsUserAPIKey = process.env.HUBOT_JENKINS_USER_API_KEY
 jenkinsHubotJob = process.env.HUBOT_JENKINS_JOB_NAME || ''
+githubToken = process.env.GITHUB_TOKEN || ''
 
 get = (robot, msg, queryOptions, callback) ->
   robot.http("#{jenkinsURL}/#{queryOptions}")
@@ -64,11 +68,19 @@ ifJobEnabled = (robot, msg, job, callback) ->
           callback()
 
 doesJobExist = (robot, msg, job, callback) ->
-  get robot, msg, "job/#{job}/config.xml", (res, body) ->
-    if res.statusCode is 404
-      msg.send "Job '#{job}' does not exist."
-    else 
-      callback(true)
+  yardmaster = robot.brain.get 'yardmaster' || {}
+  if yardmaster?.jobRepos?
+    possibleJob = yardmaster.jobRepos.filter (potentialJob) -> potentialJob.job == job
+    if possibleJob.length
+       callback(true)
+    else
+      msg.send "Job '#{job}' does not exist. If the job does exist, you need to update your job repos. Run 'set job repos' and then try again."
+  else
+    get robot, msg, "job/#{job}/config.xml", (res, body) ->
+      if res.statusCode is 404
+        msg.send "Job '#{job}' does not exist."
+      else 
+        callback(true)
 
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
@@ -112,23 +124,24 @@ switchBranch = (robot, msg) ->
   branch = msg.match[4]
 
   ifJobEnabled robot, msg, job, (jobStatus) ->
-    get robot, msg, "job/#{job}/config.xml", (res, body) ->
-      # this is a regex replace for the branch name
-      # Spaces below are to keep the xml formatted nicely
-      # TODO: parse as XML and replace string (drop regex)
-      config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
-
-      # try to update config
-      post robot, "job/#{job}/config.xml", config, (err, res, body) ->
-        if err
-          msg.send "Encountered an error :( #{err}"
-        else if res.statusCode is 200
-          # if update successful build branch
-          buildBranch(robot, msg, job, branch)  
-        else if res.statusCode is 404
-          msg.send "Job '#{job}' not found" 
-        else
-          msg.send "something went wrong :(" 
+    checkBranchName robot, msg, job, branch, (branchValid) ->
+      get robot, msg, "job/#{job}/config.xml", (res, body) ->
+        # this is a regex replace for the branch name
+        # Spaces below are to keep the xml formatted nicely
+        # TODO: parse as XML and replace string (drop regex)
+        config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
+  
+        # try to update config
+        post robot, "job/#{job}/config.xml", config, (err, res, body) ->
+          if err
+            msg.send "Encountered an error :( #{err}"
+          else if res.statusCode is 200
+            # if update successful build branch
+            buildBranch(robot, msg, job, branch)  
+          else if res.statusCode is 404
+            msg.send "Job '#{job}' not found" 
+          else
+            msg.send "something went wrong :(" 
 
 showCurrentBranch = (robot, msg) ->
   job = msg.match[2]
@@ -235,6 +248,57 @@ trackJobs = (robot, msg, jobs, jobStatus, callback) ->
 
         jobStatus.push { name: job }
 
+setJobRepos = (robot, msg) ->
+  get robot, msg, "api/xml?tree=jobs[name,scm[*[*]]]", (res, body) ->
+    parseString body, (err, result) ->
+      jobs = result?.hudson?.job
+      jobRepos = []
+      for job in jobs
+        jobName = job.name?[0]
+        repoURL = job.scm?[0].userRemoteConfig?[0].url?[0]
+        jobRepos.push "job": jobName, "repo": repoURL
+      yardmaster = robot.brain.get('yardmaster') || {}
+      yardmaster.jobRepos ||= {}
+      yardmaster.jobRepos = jobRepos
+      robot.brain.set 'yardmaster', yardmaster
+      msg.send "Job repos set"
+
+removeJobRepos = (robot, msg) ->
+  yardmaster = robot.brain.get('yardmaster') || {}
+  if yardmaster.jobRepos?
+    delete yardmaster.jobRepos
+    robot.brain.set 'yardmaster', yardmaster
+    msg.send "Job repos deleted"
+  else 
+    msg.send "No job repos set. Nothing to delete."
+
+checkBranchName = (robot, msg, job, branch, callback) ->
+  yardmaster = robot.brain.get 'yardmaster' || {}
+  currentJob = yardmaster?.jobRepos?.filter (potentialJob) -> potentialJob.job == job
+  
+  doesJobExist robot, msg, job, (exists) -> 
+    if githubToken.length && currentJob?[0].repo?
+      owner = ///
+      .*\:(.*)/
+      ///.exec currentJob[0].repo
+
+      repo = ///
+      .*/(.*)\..*
+      ///.exec currentJob[0].repo
+      
+      robot.http("https://api.github.com/repos/#{owner[1]}/#{repo[1]}/branches/#{branch}")
+        .header('Authorization', "token #{githubToken}")
+        .get() (err, res, body) ->
+          if err
+            msg.send "Encountered an error :( #{err}"
+          else
+            if JSON.parse(body).name
+              callback()
+            else
+              msg.send "Branch name '#{branch}' is not valid for repo '#{repo[1]}'."
+    else 
+      callback()
+          
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
     switchBranch(robot, msg)
@@ -265,13 +329,21 @@ module.exports = (robot) ->
   
   robot.respond /set branch message to (.+)/i, (msg) ->
     message = msg.match[1]
-    robot.brain.set 'yardmaster', { "build-message": message }
+    yardmaster = robot.brain.get('yardmaster') || {}
+    yardmaster.buildMessage ||= {}
+    yardmaster.buildMessage = message
+    robot.brain.set 'yardmaster', yardmaster
     msg.send "Custom branch message set."
 
   robot.respond /remove branch message/i, (msg) ->
-    robot.brain.remove 'yardmaster'
-    msg.send "Custom branch message removed."
-  
+    yardmaster = robot.brain.get('yardmaster')
+    if yardmaster?.buildMessage?
+      delete yardmaster.buildMessage
+      robot.brain.set 'yardmaster', yardmaster
+      msg.send "Custom branch message removed."
+    else 
+      msg.send "No custom branch message set. Nothing to delete."
+      
   robot.respond /(.+) status/i, (msg) ->
     job = msg.match[1]
     doesJobExist robot, msg, job, (exists) ->
@@ -279,7 +351,6 @@ module.exports = (robot) ->
         msg.send "Checking on #{job} and its dependencies for you."
 
         trackJobs robot, msg, [job], [], (callback) ->
-          # is currently building and is #{percentComplete}% complete."
           jobStatus = ""
           callback.map (jobEntry) -> 
             if jobEntry.percent
@@ -287,3 +358,10 @@ module.exports = (robot) ->
             else
               jobStatus = jobStatus + "#{jobEntry.name} is not building.\n"
           msg.send jobStatus
+
+  robot.respond /set job repos/i, (msg) ->
+    removeJobRepos robot, msg
+    setJobRepos robot, msg
+  
+  robot.respond /remove job repos/i, (msg) ->
+    removeJobRepos robot, msg
