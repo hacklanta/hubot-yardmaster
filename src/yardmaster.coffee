@@ -89,8 +89,9 @@ buildBranch = (robot, msg, job, branch = "") ->
         msg.send "Encountered an error on build :( #{err}"
       else if res.statusCode is 201
         if branch
-          customMessage = robot.brain.get("yardmaster")?["build-message"]
-          if customMessage
+          yardmaster = robot.brain.get("yardmaster") || {}
+          customMessage = yardmaster.buildMessage
+          if customMessage?
             customMessage = customMessage.replace /job/, job
             customMessage = customMessage.replace /branch/, branch
             msg.send customMessage
