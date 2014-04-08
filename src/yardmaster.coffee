@@ -143,15 +143,13 @@ switchBranch = (robot, msg) ->
           else
             msg.send "something went wrong :(" 
 
-showCurrentBranch = (robot, msg) ->
-  job = msg.match[2]
- 
+findCurrentBranch = (robot, msg, job, callback) ->
   get robot, msg, "job/#{job}/config.xml", (res, body) ->
     currentBranch = getCurrentBranch(body)
     if currentBranch? 
-       msg.send("current branch is '#{currentBranch}'")
+       callback(currentBranch)
     else
-       msg.send("Did not find job '#{job}'")
+       msg.send "Did not find current branch for #{job}."
 
 listJobs = (robot, msg) ->
   jobFilter = new RegExp(msg.match[2],"i")
@@ -272,19 +270,24 @@ removeJobRepos = (robot, msg) ->
   else 
     msg.send "No job repos set. Nothing to delete."
 
+getOwnerAndRepoForRepoURL = (repoURL) ->
+  owner = ///
+    .*\:(.*)/
+    ///.exec repoURL
+
+  repo = ///
+    .*/(.*)\..*
+    ///.exec repoURL
+  
+  [owner, repo]
+
 checkBranchName = (robot, msg, job, branch, callback) ->
   yardmaster = robot.brain.get 'yardmaster' || {}
   currentJob = yardmaster?.jobRepos?.filter (potentialJob) -> potentialJob.job == job
   
   doesJobExist robot, msg, job, (exists) -> 
     if githubToken.length && currentJob?[0].repo?
-      owner = ///
-      .*\:(.*)/
-      ///.exec currentJob[0].repo
-
-      repo = ///
-      .*/(.*)\..*
-      ///.exec currentJob[0].repo
+      [owner, repo] = getOwnerAndRepoForRepoURL currentJob[0].repo
       
       robot.http("https://api.github.com/repos/#{owner[1]}/#{repo[1]}/branches/#{branch}")
         .header('Authorization', "token #{githubToken}")
@@ -299,12 +302,64 @@ checkBranchName = (robot, msg, job, branch, callback) ->
     else 
       callback()
           
+deployBranchToJob = (robot, msg) ->
+  deployBranch = msg.match[2]
+  deployName = msg.match[3]
+  yardmaster = robot.brain.get('yardmaster') || {}
+  
+  deployJob = yardmaster?.buildJob?.filter (potentialJob) -> potentialJob.name == deployName
+  knownJob = yardmaster?.jobRepos?.filter (potentialJob) -> potentialJob.job == deployJob?[0].job
+  repoURL = knownJob?[0].repo
+  
+  if deployJob.length && repoURL?
+    [owner, repo] = getOwnerAndRepoForRepoURL repoURL
+    
+    findCurrentBranch robot, msg, deployJob[0].job, (branch) ->
+      body = {
+        "base": branch,
+        "head": deployBranch,
+        "commit_message": "#{deployBranch} merged into #{branch} by #{robot.name}!"
+      }
+      postBody = JSON.stringify(body)
+
+      robot.http("https://api.github.com/repos/#{owner[1]}/#{repo[1]}/merges")
+        .header('Authorization', "token #{githubToken}")
+        .post(postBody) (err, res, body) ->
+          if res.statusCode == 201
+            msg.send "Congrats! #{deployBranch} was merged into #{deployName} successfully."
+          else
+            msg.send """
+              Something went wrong :(
+              Status code is: #{res.statusCode}
+              Check https://developer.github.com/v3/repos/merging/ to see what #{res.statusCode} means.
+              """
+  else
+    msg.send "Did not find '#{deployJob}' in list of known deployment targets."
+      
+
+setBuildJob = (robot, msg) ->
+  yardmaster = robot.brain.get('yardmaster') || {}
+  yardmaster.deploymentJob ||= []
+  buildName = msg.match[1]
+  buildJob = msg.match[2]
+  
+  doesJobExist robot, msg, buildJob, (exists) ->
+    existingJobs = yardmaster.deploymentJob?.filter (potentialJob) -> potentialJob.name != buildName
+    if existingJobs?
+      yardmaster.deploymentJob = existingJobs  
+    yardmaster.deploymentJob.push { name: buildName, job: buildJob }
+    robot.brain.set 'yardmaster', yardmaster
+    msg.send "#{buildName} set to #{buildJob}."
+    
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
     switchBranch(robot, msg)
 
   robot.respond /(show\s|current\s|show current\s)?branch for (.+)/i, (msg) ->
-    showCurrentBranch(robot, msg)
+    job = msg.match[2]
+    doesJobExist robot, msg, job, (exists) ->
+      findCurrentBranch robot, msg, job, (branch) ->
+        msg.send "Current branch for #{job} is #{branch}."
   
   robot.respond /(go )?(build yourself)|(go )?(ship yourself)/i, (msg) ->
     if jenkinsHubotJob
@@ -365,3 +420,15 @@ module.exports = (robot) ->
   
   robot.respond /remove job repos/i, (msg) ->
     removeJobRepos robot, msg
+  
+  robot.respond /set (.+) job to (.+)/i, (msg) ->
+    setBuildJob robot, msg
+
+  robot.respond /remove (.+) from deployments/i, (msg) ->
+    yardmaster = robot.brain.get('yardmaster')
+    existingDemployments = yardmaster?.deploymentJob?.filter (existingJob) -> existingJob.name != msg.match[1]
+    robot.brain.set 'yardmaster', yardmaster
+    msg.send "Removed #{msg.match[1]} from deployment jobs."
+     
+  robot.respond /(deploy|merge|ship) (.+) to (.+)/i, (msg) -> 
+    deployBranchToJob robot, msg
