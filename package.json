@@ -1,7 +1,7 @@
 {
   "name": "hubot-yardmaster",
   "description": "Hubot Script for controlling CI server actions, what to deploy, when to deploy, what branch is deployed",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "author": "Mike Rivera <rivera.mj@gmail.com>",
   "license": "MIT",
   "keywords": [
