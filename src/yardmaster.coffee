@@ -111,7 +111,7 @@ getCurrentBranch = (body) ->
   branch
 
 buildJob = (robot, msg) ->
-  job = msg.match[2]
+  job = msg.match[2].trim()
 
   get robot, msg, "job/#{job}/", (res, body) ->
     if res.statusCode is 404
@@ -120,8 +120,8 @@ buildJob = (robot, msg) ->
       buildBranch(robot, msg, job)
 
 switchBranch = (robot, msg) ->
-  job = msg.match[2]
-  branch = msg.match[4]
+  job = msg.match[2].trim()
+  branch = msg.match[4].trim()
 
   ifJobEnabled robot, msg, job, (jobStatus) ->
     checkBranchName robot, msg, job, branch, (branchValid) ->
@@ -152,7 +152,7 @@ findCurrentBranch = (robot, msg, job, callback) ->
        msg.send "Did not find current branch for #{job}."
 
 listJobs = (robot, msg) ->
-  jobFilter = new RegExp(msg.match[2],"i")
+  jobFilter = new RegExp(msg.match[2].trim(),"i")
   
   get robot, msg, "api/json", (res, body) ->
     response = ""
@@ -172,8 +172,8 @@ listJobs = (robot, msg) ->
     """
 
 changeJobState = (robot, msg) ->
-  changeState = msg.match[1]
-  job = msg.match[2]
+  changeState = msg.match[1].trim()
+  job = msg.match[2].trim()
 
   post robot, "job/#{job}/#{changeState}", "", (err, res, body) ->
     if err
@@ -186,8 +186,8 @@ changeJobState = (robot, msg) ->
       msg.send "Not sure what happened. You should check #{jenkinsURL}/job/#{job}/"
 
 showBuildOuput = (robot, msg) ->
-  lastJob = if msg.match[2] == "failure" then "lastFailedBuild" else "lastBuild"
-  job = msg.match[3]
+  lastJob = if msg.match[2].trim() == "failure" then "lastFailedBuild" else "lastBuild"
+  job = msg.match[3].trim()
 
   get robot, msg, "job/#{job}/#{lastJob}/logText/progressiveText", (res, body) ->
     if res.statusCode is 404 
@@ -200,8 +200,8 @@ showBuildOuput = (robot, msg) ->
       """
 
 showSpecificBuildOutput = (robot, msg) -> 
-  job = msg.match[2]
-  jobNumber = msg.match[3]
+  job = msg.match[2].trim()
+  jobNumber = msg.match[3].trim()
   
   get robot, msg, "job/#{job}/#{jobNumber}/logText/progressiveText", (res, body) ->
     if res.statusCode is 404 
@@ -303,8 +303,8 @@ checkBranchName = (robot, msg, job, branch, callback) ->
       callback()
           
 deployBranchToJob = (robot, msg) ->
-  deployBranch = msg.match[2]
-  deployName = msg.match[3]
+  deployBranch = msg.match[2].trim()
+  deployName = msg.match[3].trim()
   yardmaster = robot.brain.get('yardmaster') || {}
   
   deployJob = yardmaster?.buildJob?.filter (potentialJob) -> potentialJob.name == deployName
@@ -340,8 +340,8 @@ deployBranchToJob = (robot, msg) ->
 setBuildJob = (robot, msg) ->
   yardmaster = robot.brain.get('yardmaster') || {}
   yardmaster.deploymentJob ||= []
-  buildName = msg.match[1]
-  buildJob = msg.match[2]
+  buildName = msg.match[1].trim()
+  buildJob = msg.match[2].trim()
   
   doesJobExist robot, msg, buildJob, (exists) ->
     existingJobs = yardmaster.deploymentJob?.filter (potentialJob) -> potentialJob.name != buildName
@@ -356,7 +356,7 @@ module.exports = (robot) ->
     switchBranch(robot, msg)
 
   robot.respond /(show\s|current\s|show current\s)?branch for (.+)\.?/i, (msg) ->
-    job = msg.match[2]
+    job = msg.match[2].trim()
     doesJobExist robot, msg, job, (exists) ->
       findCurrentBranch robot, msg, job, (branch) ->
         msg.send "Current branch for #{job} is #{branch}."
@@ -383,7 +383,7 @@ module.exports = (robot) ->
     showSpecificBuildOutput(robot, msg)
   
   robot.respond /set branch message to (.+)\.?/i, (msg) ->
-    message = msg.match[1]
+    message = msg.match[1].trim()
     yardmaster = robot.brain.get('yardmaster') || {}
     yardmaster.buildMessage ||= {}
     yardmaster.buildMessage = message
@@ -400,7 +400,7 @@ module.exports = (robot) ->
       msg.send "No custom branch message set. Nothing to delete."
       
   robot.respond /(.+) status\.?/i, (msg) ->
-    job = msg.match[1]
+    job = msg.match[1].trim()
     doesJobExist robot, msg, job, (exists) ->
       if exists
         msg.send "Checking on #{job} and its dependencies for you."
@@ -426,9 +426,9 @@ module.exports = (robot) ->
 
   robot.respond /remove (.+) from deployments\.?/i, (msg) ->
     yardmaster = robot.brain.get('yardmaster')
-    existingDemployments = yardmaster?.deploymentJob?.filter (existingJob) -> existingJob.name != msg.match[1]
+    existingDemployments = yardmaster?.deploymentJob?.filter (existingJob) -> existingJob.name != msg.match[1].trim()
     robot.brain.set 'yardmaster', yardmaster
-    msg.send "Removed #{msg.match[1]} from deployment jobs."
+    msg.send "Removed #{msg.match[1].trim()} from deployment jobs."
      
   robot.respond /(deploy|merge|ship) (.+) to (.+)\.?/i, (msg) -> 
     deployBranchToJob robot, msg
