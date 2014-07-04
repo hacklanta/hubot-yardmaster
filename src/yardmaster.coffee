@@ -352,22 +352,22 @@ setBuildJob = (robot, msg) ->
     msg.send "#{buildName} set to #{buildJob}."
     
 module.exports = (robot) ->             
-  robot.respond /(switch|change|build) (.+) (to|with) (.+)/i, (msg) ->
+  robot.respond /(switch|change|build) (.+) (to|with) (.+)\.?/i, (msg) ->
     switchBranch(robot, msg)
 
-  robot.respond /(show\s|current\s|show current\s)?branch for (.+)/i, (msg) ->
+  robot.respond /(show\s|current\s|show current\s)?branch for (.+)\.?/i, (msg) ->
     job = msg.match[2]
     doesJobExist robot, msg, job, (exists) ->
       findCurrentBranch robot, msg, job, (branch) ->
         msg.send "Current branch for #{job} is #{branch}."
   
-  robot.respond /(go )?(build yourself)|(go )?(ship yourself)/i, (msg) ->
+  robot.respond /(go )?(build yourself)|(go )?(ship yourself)\.?/i, (msg) ->
     if jenkinsHubotJob
       buildBranch(robot, msg, jenkinsHubotJob)
     else
       msg.send("No hubot job found. Set {HUBOT_JENKINS_JOB_NAME} to job name.")
 
-  robot.respond /(list jobs|jenkins list|all jobs|jobs)\s*(.*)/i, (msg) ->
+  robot.respond /(list jobs|jenkins list|all jobs|jobs)\s*(.*)\.?/i, (msg) ->
     listJobs(robot, msg)
 
   robot.respond /(build|rebuild) (.+)/i, (msg) ->
@@ -376,13 +376,13 @@ module.exports = (robot) ->
   robot.respond /(disable|enable) (.+)/i, (msg) ->
     changeJobState(robot, msg)
   
-  robot.respond /(show|show last|last) (build|failure|output) for (.+)/i, (msg) ->
+  robot.respond /(show|show last|last) (build|failure|output) for (.+)\.?/i, (msg) ->
     showBuildOuput(robot, msg)
   
-  robot.respond /(show|show output|output) for (.+) ([0-9]+)/i, (msg) ->
+  robot.respond /(show|show output|output) for (.+) ([0-9]+)\.?/i, (msg) ->
     showSpecificBuildOutput(robot, msg)
   
-  robot.respond /set branch message to (.+)/i, (msg) ->
+  robot.respond /set branch message to (.+)\.?/i, (msg) ->
     message = msg.match[1]
     yardmaster = robot.brain.get('yardmaster') || {}
     yardmaster.buildMessage ||= {}
@@ -390,7 +390,7 @@ module.exports = (robot) ->
     robot.brain.set 'yardmaster', yardmaster
     msg.send "Custom branch message set."
 
-  robot.respond /remove branch message/i, (msg) ->
+  robot.respond /remove branch message\.?/i, (msg) ->
     yardmaster = robot.brain.get('yardmaster')
     if yardmaster?.buildMessage?
       delete yardmaster.buildMessage
@@ -399,7 +399,7 @@ module.exports = (robot) ->
     else 
       msg.send "No custom branch message set. Nothing to delete."
       
-  robot.respond /(.+) status/i, (msg) ->
+  robot.respond /(.+) status\.?/i, (msg) ->
     job = msg.match[1]
     doesJobExist robot, msg, job, (exists) ->
       if exists
@@ -414,21 +414,21 @@ module.exports = (robot) ->
               jobStatus = jobStatus + "#{jobEntry.name} is not building.\n"
           msg.send jobStatus
 
-  robot.respond /set job repos/i, (msg) ->
+  robot.respond /set job repos\.?/i, (msg) ->
     removeJobRepos robot, msg
     setJobRepos robot, msg
   
-  robot.respond /remove job repos/i, (msg) ->
+  robot.respond /remove job repos\.?/i, (msg) ->
     removeJobRepos robot, msg
   
-  robot.respond /set (.+) job to (.+)/i, (msg) ->
+  robot.respond /set (.+) job to (.+)\.?/i, (msg) ->
     setBuildJob robot, msg
 
-  robot.respond /remove (.+) from deployments/i, (msg) ->
+  robot.respond /remove (.+) from deployments\.?/i, (msg) ->
     yardmaster = robot.brain.get('yardmaster')
     existingDemployments = yardmaster?.deploymentJob?.filter (existingJob) -> existingJob.name != msg.match[1]
     robot.brain.set 'yardmaster', yardmaster
     msg.send "Removed #{msg.match[1]} from deployment jobs."
      
-  robot.respond /(deploy|merge|ship) (.+) to (.+)/i, (msg) -> 
+  robot.respond /(deploy|merge|ship) (.+) to (.+)\.?/i, (msg) -> 
     deployBranchToJob robot, msg
