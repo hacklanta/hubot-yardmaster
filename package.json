@@ -14,10 +14,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git://github.com/riveramj/hubot-yardmaster.git"
+    "url": "git://github.com/hacklanta/hubot-yardmaster.git"
   },
   "bugs": {
-    "url": "https://github.com/riveramj/hubot-yardmaster/issues"
+    "url": "https://github.com/hacklanta/hubot-yardmaster/issues"
   },
   "dependencies": {
     "coffee-script": "~1.6",
