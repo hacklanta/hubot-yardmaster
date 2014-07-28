@@ -508,7 +508,7 @@ class WatchJob
 
         if result?
           unregisterWatchedJob robot, job.id
-          job.sendMessage robot, "Job #{url} finished with status: #{result}."
+          job.sendMessage robot, "@#{job.user.name}, job #{url} finished with status: #{result}."
           
   start: (robot, url) ->
     @cronjob = new cronJob("*/1 * * * *", =>
