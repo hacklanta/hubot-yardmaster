@@ -27,6 +27,7 @@
 #   hubot {job} status - show current build status and percent compelete of job and its dependencies.
 #   hubot set job repos - Pulls list of jobs and repos from jenkins and places in memory to validate branch names if github token provided.
 #   hubot remove job repos - Will remove job repos from memory.
+#   hubot watch job {job-url} - Will check job every minute and notify you on completion
 # 
 # Author: 
 #   hacklanta
