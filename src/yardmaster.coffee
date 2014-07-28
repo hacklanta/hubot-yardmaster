@@ -376,9 +376,6 @@ unregisterWatchedJob = (robot, id)->
     delete yardmaster.watchJobs[id]
     delete JOBS[id]
     robot.brain.set 'yardmaster', yardmaster
-    true
-  else
-    false
 
 createCronWatchJob = (robot, url, msg) -> 
   id = Math.floor(Math.random() * 1000000) while !id? || JOBS[id]
@@ -504,13 +501,14 @@ class WatchJob
   checkJobStatus: (url, robot, job) ->
     getByFullUrl robot, "#{url}/api/json", (res, body) ->
       if res.statusCode is 404
+        unregisterWatchedJob robot, job.id
         robot.send "#{url} does not seem to be a valid job url. Removing from watch list"
       else
         result = JSON.parse(body).result
 
         if result?
           unregisterWatchedJob robot, job.id
-          job.sendMessage robot, "Job #{url} is finished with status: #{result} and is no longer watched."
+          job.sendMessage robot, "Job #{url} finished with status: #{result}."
           
   start: (robot, url) ->
     @cronjob = new cronJob("*/1 * * * *", =>
