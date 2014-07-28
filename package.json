@@ -21,7 +21,8 @@
   },
   "dependencies": {
     "coffee-script": "~1.6",
-    "xml2js": "0.4"
+    "xml2js": "0.4",
+    "cron": "1.0.4"
   },
   "devDependencies": {
     "mocha": "*",

@@ -32,12 +32,24 @@
 #   hacklanta
 
 {parseString} = require 'xml2js'
+cronJob = require('cron').CronJob
 
 jenkinsURL = process.env.HUBOT_JENKINS_URL
 jenkinsUser = process.env.HUBOT_JENKINS_USER
 jenkinsUserAPIKey = process.env.HUBOT_JENKINS_USER_API_KEY
 jenkinsHubotJob = process.env.HUBOT_JENKINS_JOB_NAME || ''
 githubToken = process.env.GITHUB_TOKEN || ''
+
+JOBS = {}
+
+getByFullUrl =  (robot, url, callback) ->
+  robot.http(url)
+    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+    .get() (err, res, body) ->
+      if err
+        robot.send "Encountered an error :( #{err}"
+      else
+        callback(res, body)
 
 get = (robot, msg, queryOptions, callback) ->
   robot.http("#{jenkinsURL}/#{queryOptions}")
@@ -350,7 +362,55 @@ setBuildJob = (robot, msg) ->
     yardmaster.deploymentJob.push { name: buildName, job: buildJob }
     robot.brain.set 'yardmaster', yardmaster
     msg.send "#{buildName} set to #{buildJob}."
-    
+
+registerNewWatchedJob = (robot, id, user, url) ->
+  job = new WatchJob(id, user)
+  job.start(robot, url)
+  JOBS[id] = job
+
+unregisterWatchedJob = (robot, id)->
+  if JOBS[id]
+    JOBS[id].stop()
+    yardmaster = robot.brain.get('yardmaster') || {}
+    yardmaster.watchJobs ||= {}
+    delete yardmaster.watchJobs[id]
+    delete JOBS[id]
+    robot.brain.set 'yardmaster', yardmaster
+    true
+  else
+    false
+
+createCronWatchJob = (robot, url, msg) -> 
+  id = Math.floor(Math.random() * 1000000) while !id? || JOBS[id]
+
+  user = msg.message.user
+
+  yardmaster = robot.brain.get('yardmaster') || {}
+  yardmaster.watchJobs ||= {}
+  yardmaster.watchJobs[id] = { jobUrl: url, user: user }
+  robot.brain.set 'yardmaster', yardmaster
+  
+  registerNewWatchedJob robot, id, user, url
+  
+  msg.send "job #{url} added with id #{id}."
+
+trimUrl = (url) ->
+  urlCorrect = /[0-9]/.test(url.slice (url.length - 1))
+  if urlCorrect
+    url
+  else 
+    trimUrl url.slice(0, -1)
+
+
+watchJob = (robot, msg) ->
+  jobUrl = trimUrl msg.match[1].trim()
+
+  getByFullUrl robot, "#{jobUrl}/api/json", (res, body) ->
+    if res.statusCode is 404
+      msg.send "#{jobUrl} does not seem to be a valid job url."
+    else
+      createCronWatchJob robot, jobUrl, msg
+      
 module.exports = (robot) ->             
   robot.respond /(switch|change|build) (.+) (to|with) (.+)\.?/i, (msg) ->
     switchBranch(robot, msg)
@@ -432,3 +492,36 @@ module.exports = (robot) ->
      
   robot.respond /(deploy|merge|ship) (.+) to (.+)\.?/i, (msg) -> 
     deployBranchToJob robot, msg
+
+  robot.respond /watch job (.+)\.?/i, (msg) -> 
+    watchJob robot, msg
+
+class WatchJob
+  constructor: (id, user) ->
+    @id = id
+    @user = user
+
+  checkJobStatus: (url, robot, job) ->
+    getByFullUrl robot, "#{url}/api/json", (res, body) ->
+      if res.statusCode is 404
+        robot.send "#{url} does not seem to be a valid job url. Removing from watch list"
+      else
+        result = JSON.parse(body).result
+
+        if result?
+          unregisterWatchedJob robot, job.id
+          job.sendMessage robot, "Job #{url} is finished with status: #{result} and is no longer watched."
+          
+  start: (robot, url) ->
+    @cronjob = new cronJob("*/1 * * * *", =>
+      @checkJobStatus url, robot, this
+    )
+    @cronjob.start()
+
+  stop: ->
+    @cronjob.stop()
+
+  sendMessage: (robot, message) ->
+    envelope = user: @user, room: @user.room
+    robot.send envelope, message
+
