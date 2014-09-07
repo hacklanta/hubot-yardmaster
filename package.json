@@ -1,37 +1,30 @@
 {
-  "name": "hubot-yardmaster",
-  "description": "Hubot Script for controlling CI server actions, what to deploy, when to deploy, what branch is deployed",
-  "version": "1.0.18",
-  "author": "Mike Rivera <rivera.mj@gmail.com>",
-  "license": "MIT",
-  "keywords": [
-    "hubot",
-    "hubot-scripts",
-    "jenkins",
-    "git",
-    "branch",
-    "CI"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/hacklanta/hubot-yardmaster.git"
+  "name":"hubot-yardmaster",
+  "description":"Hubot Script for controlling CI server actions, what to deploy, when to deploy, what branch is deployed",
+  "version":"1.0.18",
+  "author":"Mike Rivera <rivera.mj@gmail.com>",
+  "license":"MIT",
+  "keywords":["hubot","hubot-scripts","jenkins","git","branch","CI"],
+  "repository":{
+    "type":"git",
+    "url":"git://github.com/hacklanta/hubot-yardmaster.git"
   },
-  "bugs": {
-    "url": "https://github.com/hacklanta/hubot-yardmaster/issues"
+  "bugs":{
+    "url":"https://github.com/hacklanta/hubot-yardmaster/issues"
   },
-  "dependencies": {
-    "coffee-script": "~1.6",
-    "xml2js": "0.4",
-    "cron": "1.0.4"
+  "dependencies":{
+    "coffee-script":"1.8.0",
+    "xml2js":"0.4.4",
+    "cron":"1.0.4"
   },
-  "devDependencies": {
-    "mocha": "*",
-    "chai": "*",
-    "sinon-chai": "*",
-    "sinon": "*"
+  "devDependencies":{
+    "mocha":"*",
+    "chai":"*",
+    "sinon-chai":"*",
+    "sinon":"*"
   },
-  "main": "index.coffee",
-  "scripts": {
-    "test": "script/test"
+  "main":"index.coffee",
+  "scripts":{
+    "test":"script/test"
   }
 }
