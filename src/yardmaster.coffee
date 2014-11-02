@@ -98,6 +98,8 @@ doesJobExist = (robot, msg, job, callback) ->
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
     post robot, "job/#{job}/build", "", (err, res, body) ->
+      queueUrl = res.headers?["location"]
+
       if err
         msg.send "Encountered an error on build :( #{err}"
       else if res.statusCode is 201
@@ -107,12 +109,15 @@ buildBranch = (robot, msg, job, branch = "") ->
             customMessage = customMessage.replace /job/, job
             customMessage = customMessage.replace /branch/, branch
             msg.send customMessage
+            watchQueue robot, queueUrl, msg
           else
-            msg.send "#{job} is building with #{branch}"
+            msg.send "#{job} is building with #{branch}. I'll keep an eye on it for you."
+            watchQueue robot, queueUrl, msg
         else if job == jenkinsHubotJob
           msg.send "I'll Be right back"
         else
-          msg.send "#{job} is building."
+          msg.send "#{job} is building. I'll let you know when it's done."
+          watchQueue robot, queueUrl, msg
       else
         msg.send "something went wrong with #{res.statusCode} :(" 
 
@@ -142,7 +147,7 @@ switchBranch = (robot, msg) ->
         # this is a regex replace for the branch name
         # Spaces below are to keep the xml formatted nicely
         # TODO: parse as XML and replace string (drop regex)
-        config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"   
+        config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>" 
   
         # try to update config
         post robot, "job/#{job}/config.xml", config, (err, res, body) ->
@@ -364,9 +369,12 @@ setBuildJob = (robot, msg) ->
     robot.brain.set 'yardmaster', yardmaster
     msg.send "#{buildName} set to #{buildJob}."
 
-registerNewWatchedJob = (robot, id, user, url) ->
+registerNewWatchedJob = (robot, id, user, url, queue, msg) ->
   job = new WatchJob(id, user)
-  job.start(robot, url)
+  if queue
+    job.startQueue robot, url, msg
+  else
+    job.start robot, url, msg
   JOBS[id] = job
 
 unregisterWatchedJob = (robot, id)->
@@ -378,7 +386,7 @@ unregisterWatchedJob = (robot, id)->
     delete JOBS[id]
     robot.brain.set 'yardmaster', yardmaster
 
-createCronWatchJob = (robot, url, msg) -> 
+createCronWatchJob = (robot, url, msg, queue = false) -> 
   id = Math.floor(Math.random() * 1000000) while !id? || JOBS[id]
 
   user = msg.message.user
@@ -388,9 +396,10 @@ createCronWatchJob = (robot, url, msg) ->
   yardmaster.watchJobs[id] = { jobUrl: url, user: user }
   robot.brain.set 'yardmaster', yardmaster
   
-  registerNewWatchedJob robot, id, user, url
+  registerNewWatchedJob robot, id, user, url, queue, msg
   
-  msg.send "job #{url} added with id #{id}."
+  if !queue
+    msg.send "job #{url} added with id #{id}."
 
 trimUrl = (url) ->
   urlCorrect = /[0-9]/.test(url.slice (url.length - 1))
@@ -399,6 +408,26 @@ trimUrl = (url) ->
   else 
     trimUrl url.slice(0, -1)
 
+findJobNumber = (url, originalURL) ->
+  possibleNumber = /[0-9]/.test(url.slice(url.length - 1))
+  if !possibleNumber
+    originalURL.slice(url.length, originalURL.length)
+  else 
+    findJobNumber url.slice(0, -1), originalURL
+
+
+watchQueue = (robot, url, msg) ->
+  trimmedURL = url.slice(0, url.length - 1)
+
+  jobNumber = findJobNumber trimmedURL, trimmedURL
+
+  queueUrl = "#{jenkinsURL}/queue/item/#{jobNumber}/api/json"
+
+  getByFullUrl robot, queueUrl, (res, body) ->
+    if res.statusCode is 404
+      msg.send "#{url} does not seem to be a valid url. Couldn't watch job."
+    else
+      createCronWatchJob robot, queueUrl, msg, true
 
 watchJob = (robot, msg) ->
   jobUrl = trimUrl msg.match[1].trim()
@@ -409,7 +438,7 @@ watchJob = (robot, msg) ->
     else
       createCronWatchJob robot, jobUrl, msg
       
-module.exports = (robot) ->             
+module.exports = (robot) ->
   robot.respond /(switch|change|build) (.+) (to|with) (.+)\.?/i, (msg) ->
     switchBranch(robot, msg)
 
@@ -499,23 +528,42 @@ class WatchJob
     @id = id
     @user = user
 
-  checkJobStatus: (url, robot, job) ->
+  checkJobStatus: (url, robot, job, msg) ->
     getByFullUrl robot, "#{url}/api/json", (res, body) ->
       if res.statusCode is 404
         unregisterWatchedJob robot, job.id
-        robot.send "#{url} does not seem to be a valid job url. Removing from watch list"
+        msg.send "#{url} does not seem to be a valid job url. Removing from watch list"
       else
         result = JSON.parse(body).result
 
         if result?
           unregisterWatchedJob robot, job.id
-          job.sendMessage robot, "@#{job.user.name}, job #{url} finished with status: #{result}."
-          
-  start: (robot, url) ->
+          msg.send "@#{job.user.name}, job #{url} finished with status: #{result}."
+
+  checkQueueStatus: (url, robot, job, msg) ->
+    getByFullUrl robot, url, (res, body) ->
+      if res.statusCode is 404
+        unregisterWatchedJob robot, job.id
+        msg.send "#{url} does not seem to be a valid job url. Removing from watch list"
+      else
+        jobUrl = JSON.parse(body).executable?.url
+
+        if jobUrl?
+          unregisterWatchedJob robot, job.id
+          createCronWatchJob robot, jobUrl, msg
+
+  start: (robot, url, msg) ->
     @cronjob = new cronJob("*/1 * * * *", =>
-      @checkJobStatus url, robot, this
+      @checkJobStatus url, robot, this, msg
     )
     @cronjob.start()
+
+  startQueue: (robot, url, msg) ->
+    @cronjob = new cronJob("*/1 * * * *", =>
+      @checkQueueStatus url, robot, this, msg
+    )
+    @cronjob.start()
+
 
   stop: ->
     @cronjob.stop()
