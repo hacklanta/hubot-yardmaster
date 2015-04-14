@@ -28,6 +28,7 @@
 #   hubot set job repos - Pulls list of jobs and repos from jenkins and places in memory to validate branch names if github token provided.
 #   hubot remove job repos - Will remove job repos from memory.
 #   hubot watch job {job-url} - Will check job every minute and notify you on completion
+#   hubot (show|show last|last) (build) (date|time) for {job} - shows the last build date and time for a job
 # 
 # Author: 
 #   hacklanta
