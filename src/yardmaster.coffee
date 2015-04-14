@@ -92,7 +92,7 @@ doesJobExist = (robot, msg, job, callback) ->
     get robot, msg, "job/#{job}/config.xml", (res, body) ->
       if res.statusCode is 404
         msg.send "Job '#{job}' does not exist."
-      else 
+      else
         callback(true)
 
 buildBranch = (robot, msg, job, branch = "") ->
@@ -203,28 +203,38 @@ changeJobState = (robot, msg) ->
     else
       msg.send "Not sure what happened. You should check #{jenkinsURL}/job/#{job}/"
 
+getJobTimeStamp = (robot, msg, jobUrl, callback) ->
+  get robot, msg, "#{jobUrl}/api/json", (res, body) ->
+    rawDateTime = JSON.parse(body).id
+    timeAndDate = rawDateTime.split('_')
+    timeAndDate[1] = timeAndDate[1].replace(/-/g, ":")
+    callback(timeAndDate)
+
 showBuildOuput = (robot, msg) ->
   lastJob = if msg.match[2].trim() == "failure" then "lastFailedBuild" else "lastBuild"
   job = msg.match[3].trim()
 
   get robot, msg, "job/#{job}/#{lastJob}/logText/progressiveText", (res, body) ->
-    if res.statusCode is 404 
+    if res.statusCode is 404
       msg.send "Did not find job '#{job}."
     else
-      msg.send """
-        #{jenkinsURL}/job/#{job}/#{lastJob}/console
-        Output is: 
-        #{body}
-      """
+      getJobTimeStamp robot, msg, "job/#{job}/#{lastJob}", (timeAndDate) ->
+        msg.send """
+          Job last built on #{timeAndDate[0]} at #{timeAndDate[1]} utc 
+          #{jenkinsURL}/job/#{job}/#{lastJob}/console
+          Output is:
+          #{body}
+        """
 
-showSpecificBuildOutput = (robot, msg) -> 
+showSpecificBuildOutput = (robot, msg) ->
   job = msg.match[2].trim()
   jobNumber = msg.match[3].trim()
   
   get robot, msg, "job/#{job}/#{jobNumber}/logText/progressiveText", (res, body) ->
-    if res.statusCode is 404 
+    if res.statusCode is 404
       msg.send "Did not find output for job number '#{jobNumber}' for '#{job}."
     else
+      getJobTimeStamp robot, msg, "job/#{job}/#{lastJob}", (timeStamp) ->
       msg.send """
         #{jenkinsURL}/job/#{job}/#{jobNumber}/console
         Output is: 
@@ -468,6 +478,11 @@ module.exports = (robot) ->
   
   robot.respond /(show|show output|output) for (.+) ([0-9]+)\.?/i, (msg) ->
     showSpecificBuildOutput(robot, msg)
+
+  robot.respond /(?:show|show last|last) (?:build\s)?(?:date|time) for (.+)\.?/i, (msg) ->
+    job = msg.match[1].trim()
+    getJobTimeStamp robot, msg, "job/#{job}/lastBuild", (timeAndDate) ->
+        msg.send "#{job} last built on #{timeAndDate[0]} at #{timeAndDate[1]} utc"
   
   robot.respond /set branch message to (.+)\.?/i, (msg) ->
     message = msg.match[1].trim()
@@ -483,7 +498,7 @@ module.exports = (robot) ->
       delete yardmaster.buildMessage
       robot.brain.set 'yardmaster', yardmaster
       msg.send "Custom branch message removed."
-    else 
+    else
       msg.send "No custom branch message set. Nothing to delete."
       
   robot.respond /(.+) status\.?/i, (msg) ->
@@ -517,7 +532,7 @@ module.exports = (robot) ->
     robot.brain.set 'yardmaster', yardmaster
     msg.send "Removed #{msg.match[1].trim()} from deployment jobs."
      
-  robot.respond /(deploy|merge|ship) (.+) to (.+)\.?/i, (msg) -> 
+  robot.respond /(deploy|merge|ship) (.+) to (.+)\.?/i, (msg) ->
     deployBranchToJob robot, msg
 
   robot.respond /watch job (.+)\.?/i, (msg) -> 
@@ -571,4 +586,3 @@ class WatchJob
   sendMessage: (robot, message) ->
     envelope = user: @user, room: @user.room
     robot.send envelope, message
-
