@@ -31,7 +31,7 @@
 #   hubot (show|show last|last) (build) (date|time) for {job} - shows the last build date and time for a job
 # 
 # Author: 
-#   hacklanta
+#   @riveramj
 
 {parseString} = require 'xml2js'
 cronJob = require('cron').CronJob
