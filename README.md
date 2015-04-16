@@ -7,6 +7,7 @@ Yardmaster is a Hubot plugin that allows you to change your current git branch o
 * HUBOT_JENKINS_USER
 * HUBOT_JENKINS_USER_API_KEY - Not your password. Find at {HUBOT_JENKINS_URL}/{HUBOT_JENKINS_USER}/configure
 * HUBOT_JENKINS_JOB_NAME - Hubot job name on Jenkins (optional)
+* GITHUB_TOKEN - Github API Auth token (optional)
 
 ###Usage
 * hubot switch | change | build {job} to | with {branch} - Change job to branch on Jenkins and build.
@@ -22,3 +23,7 @@ Yardmaster is a Hubot plugin that allows you to change your current git branch o
 * hubot show | show last | last (build | failure | output) for {job} - show output for last job.
 * hubot show | show output | output for {job} {number} - show output job output for number given.
 * hubot {job} status - show current build status and percent compelete of job and its dependencies.
+* hubot set job repos - Pulls list of jobs and repos from jenkins and places in memory to validate branch names if github token provided.
+* hubot remove job repos - Will remove job repos from memory.
+* hubot watch job {job-url} - Will check job every minute and notify you on completion
+* hubot (show|show last|last) (build) (date|time) for {job} - shows the last build date and time for a job
