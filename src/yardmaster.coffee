@@ -135,9 +135,7 @@ getCurrentBranch = (body) ->
 
 buildJob = (robot, msg) ->
   job = msg.match[2].trim()
-
   get robot, msg, "job/#{job}/", (res, body) ->
-  get msg, "job/#{job}/", (res, body) ->
     if res.statusCode is 404
       msg.send "No can do. Didn't find job '#{job}'."
     else if res.statusCode == 200
