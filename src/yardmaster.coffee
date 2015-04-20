@@ -29,6 +29,8 @@
 #   hubot remove job repos - Will remove job repos from memory.
 #   hubot watch job {job-url} - Will check job every minute and notify you on completion
 #   hubot (show|show last|last) (build) (date|time) for {job} - shows the last build date and time for a job
+#   hubot (start|build) (builder|slave|node) - starts one of the available slave nodes.
+#   hubot send reinforcements - starts one of the available slave nodes.
 # 
 # Author: 
 #   @riveramj
@@ -133,6 +135,7 @@ buildJob = (robot, msg) ->
   job = msg.match[2].trim()
 
   get robot, msg, "job/#{job}/", (res, body) ->
+  get msg, "job/#{job}/", (res, body) ->
     if res.statusCode is 404
       msg.send "No can do. Didn't find job '#{job}'."
     else if res.statusCode == 200
@@ -448,8 +451,42 @@ watchJob = (robot, msg) ->
       msg.send "#{jobUrl} does not seem to be a valid job url."
     else
       createCronWatchJob robot, jobUrl, msg
-      
+
 module.exports = (robot) ->
+  getWithoutMsg = (queryOptions, callback) ->
+    robot.http("#{jenkinsURL}/#{queryOptions}")
+      .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+      .get() (err, res, body) ->
+        if err
+          console.log "Encountered an error :( #{err}"
+        else
+          callback(res, body)
+
+  startSlaveNode = (callback) ->
+    getWithoutMsg "computer/api/json", (res, body) ->
+      nodes = JSON.parse(body).computer
+      nodes = (node for node in nodes when node.idle == true)
+      if nodes.length > 0
+        name = nodes[0].displayName
+        encodedName = encodeURIComponent name
+        post robot, "/computer/#{encodedName}/launchSlaveAgent", "", (err, res, body) ->
+          callback("#{name} started. Check #{jenkinsURL}/computer/#{encodedName}/log for more details.")
+      else
+        callback("No available nodes to build.")
+
+  checkBuildQueue = (callback) ->
+    getWithoutMsg "/queue/api/json", (res, body) ->
+      callback(JSON.parse(body).items)
+
+  if monitorJenkins
+    cronjob = new cronJob("*/1 * * * *", =>
+      checkBuildQueue (queue) ->
+        if queue.length > 2
+          startSlaveNode (result) ->
+            console.log result
+    )
+    cronjob.start()
+
   robot.respond /(switch|change|build) (.+) (to|with) (.+)\.?/i, (msg) ->
     switchBranch(robot, msg)
 
@@ -510,7 +547,7 @@ module.exports = (robot) ->
 
         trackJobs robot, msg, [job], [], (callback) ->
           jobStatus = ""
-          callback.map (jobEntry) -> 
+          callback.map (jobEntry) ->
             if jobEntry.percent
               jobStatus = jobStatus + "#{jobEntry.name} is building and is #{jobEntry.percent}% complete.\n"
             else
@@ -536,8 +573,16 @@ module.exports = (robot) ->
   robot.respond /(deploy|merge|ship) (.+) to (.+)\.?/i, (msg) ->
     deployBranchToJob robot, msg
 
-  robot.respond /watch job (.+)\.?/i, (msg) -> 
+  robot.respond /watch job (.+)\.?/i, (msg) ->
     watchJob robot, msg
+
+  robot.respond /(?:start|build) (?:slave|builder|node)/i, (msg) ->
+    startSlaveNode (result) ->
+      msg.send result
+
+  robot.respond /send reinforcements/i, (msg) ->
+    msg.send "The calvary is on it's way."
+    startSlaveNode robot, msg
 
 class WatchJob
   constructor: (id, user) ->
