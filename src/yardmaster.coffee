@@ -10,6 +10,7 @@
 #   HUBOT_JENKINS_USER_API_KEY - Admin user API key. Not your password. Find at "{HUBOT_JENKINS_URL}/{HUBOT_JENKINS_USER}/configure" 
 #   HUBOT_JENKINS_JOB_NAME - Hubot job name on Jenkins (optional)
 #   GITHUB_TOKEN - Github API Auth token (optional)
+#   MONITOR_JENKINS - true | false : If true, hubot will monitor the jenkins queue and start nodes when job queue is greater than 2.
 #
 # Commands:
 #   hubot switch|change|build {job} to|with {branch} - Change job to branch on Jenkins and build.
