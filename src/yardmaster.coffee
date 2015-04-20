@@ -1,5 +1,5 @@
-# Description:
-#   Changes the branch on your jenkins instance remotely
+re# Description:
+#   Interact with Jenkins instance remotely. Build jobs, change branches, start builders, lock jobs... The list goes on.
 #
 # Dependencies:
 #   Nope
