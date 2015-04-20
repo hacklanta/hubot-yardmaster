@@ -1,4 +1,4 @@
-re# Description:
+# Description:
 #   Interact with Jenkins instance remotely. Build jobs, change branches, start builders, lock jobs... The list goes on.
 #
 # Dependencies:
