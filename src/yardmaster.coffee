@@ -466,7 +466,7 @@ module.exports = (robot) ->
   startSlaveNode = (callback) ->
     getWithoutMsg "computer/api/json", (res, body) ->
       nodes = JSON.parse(body).computer
-      nodes = (node for node in nodes when node.idle == true)
+      nodes = (node for node in nodes when node.offline == true)
       if nodes.length > 0
         name = nodes[0].displayName
         encodedName = encodeURIComponent name
