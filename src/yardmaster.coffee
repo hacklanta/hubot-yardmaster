@@ -43,6 +43,7 @@ jenkinsUser = process.env.HUBOT_JENKINS_USER
 jenkinsUserAPIKey = process.env.HUBOT_JENKINS_USER_API_KEY
 jenkinsHubotJob = process.env.HUBOT_JENKINS_JOB_NAME || ''
 githubToken = process.env.GITHUB_TOKEN || ''
+monitorJenkins = process.env.MONITOR_JENKINS || ''
 
 JOBS = {}
 
