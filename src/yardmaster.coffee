@@ -581,8 +581,9 @@ module.exports = (robot) ->
       msg.send result
 
   robot.respond /send reinforcements/i, (msg) ->
-    msg.send "The calvary is on it's way."
-    startSlaveNode robot, msg
+    msg.send "The cavalry is on it's way."
+    startSlaveNode (result) ->
+      msg.send result
 
 class WatchJob
   constructor: (id, user) ->
