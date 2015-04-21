@@ -581,7 +581,7 @@ module.exports = (robot) ->
       msg.send result
 
   robot.respond /send reinforcements/i, (msg) ->
-    msg.send "The cavalry is on it's way."
+    msg.send "The cavalry is on its way."
     startSlaveNode (result) ->
       msg.send result
 
