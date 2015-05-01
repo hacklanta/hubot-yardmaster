@@ -481,7 +481,7 @@ module.exports = (robot) ->
   if monitorJenkins
     cronjob = new cronJob("*/1 * * * *", =>
       checkBuildQueue (queue) ->
-        if queue.length > 2
+        if queue.length != 0
           startSlaveNode (result) ->
             console.log result
     )
