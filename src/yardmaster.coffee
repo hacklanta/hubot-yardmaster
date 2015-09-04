@@ -209,9 +209,8 @@ changeJobState = (robot, msg) ->
 
 getJobTimeStamp = (robot, msg, jobUrl, callback) ->
   get robot, msg, "#{jobUrl}/api/json", (res, body) ->
-    rawDateTime = JSON.parse(body).id
-    timeAndDate = rawDateTime.split('_')
-    timeAndDate[1] = timeAndDate[1].replace(/-/g, ":")
+    rawDateTime = JSON.parse(body).timestamp
+    timeAndDate = new Date(rawDateTime)
     callback(timeAndDate)
 
 showBuildOuput = (robot, msg) ->
