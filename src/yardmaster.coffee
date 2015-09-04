@@ -223,7 +223,7 @@ showBuildOuput = (robot, msg) ->
     else
       getJobTimeStamp robot, msg, "job/#{job}/#{lastJob}", (timeAndDate) ->
         msg.send """
-          Job last built on #{timeAndDate[0]} at #{timeAndDate[1]} utc 
+          Job last built on #{timeAndDate}
           #{jenkinsURL}/job/#{job}/#{lastJob}/console
           Output is:
           #{body}
