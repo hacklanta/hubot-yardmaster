@@ -48,7 +48,7 @@ monitorJenkins = process.env.MONITOR_JENKINS || ''
 
 JOBS = {}
 
-getByFullUrl =  (robot, url, callback) ->
+getByFullUrl = (robot, url, callback) ->
   robot.http(url)
     .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
     .get() (err, res, body) ->
@@ -68,6 +68,12 @@ get = (robot, msg, queryOptions, callback) ->
 
 post = (robot, queryOptions, postOptions, callback) ->
   robot.http("#{jenkinsURL}/#{queryOptions}")
+    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+    .post(postOptions) (err, res, body) ->
+      callback(err, res, body)
+
+postByFullUrl = (robot, url, postOptions, callback) ->
+  robot.http(url)
     .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
     .post(postOptions) (err, res, body) ->
       callback(err, res, body)
@@ -418,14 +424,14 @@ trimUrl = (url) ->
   urlCorrect = /[0-9]/.test(url.slice (url.length - 1))
   if urlCorrect
     url
-  else 
+  else
     trimUrl url.slice(0, -1)
 
 findJobNumber = (url, originalURL) ->
   possibleNumber = /[0-9]/.test(url.slice(url.length - 1))
   if !possibleNumber
     originalURL.slice(url.length, originalURL.length)
-  else 
+  else
     findJobNumber url.slice(0, -1), originalURL
 
 
@@ -450,6 +456,22 @@ watchJob = (robot, msg) ->
       msg.send "#{jobUrl} does not seem to be a valid job url."
     else
       createCronWatchJob robot, jobUrl, msg
+
+cancelJob = (robot, msg) ->
+  jobUrl = trimUrl msg.match[1].trim()
+
+  postByFullUrl robot, "#{jobUrl}/stop", "", (err, res, body) ->
+    if err
+      msg.send "got #{err} when tryign to post to #{jobUrl}/stop"
+    else if res.statusCode is 404
+      msg.send "#{jobUrl} does not seem to be a valid job url."
+    else
+      getByFullUrl robot, "#{jobUrl}/api/json", (res, body) ->
+        result = JSON.parse(body).result
+        if result == "ABORTED"
+          msg.send "Job successfully canceled. Ready for new orders."
+        else
+          msg.send "I tried to cancel job but I'm not 100% sure if it worked."
 
 module.exports = (robot) ->
   getWithoutMsg = (queryOptions, callback) ->
@@ -584,6 +606,10 @@ module.exports = (robot) ->
     startSlaveNode (result) ->
       msg.send result
 
+  robot.respond /(?:delete|cancel)(?: job)? (.+)/i, (msg) ->
+    cancelJob robot, msg
+
+
 class WatchJob
   constructor: (id, user) ->
     @id = id
@@ -632,3 +658,5 @@ class WatchJob
   sendMessage: (robot, message) ->
     envelope = user: @user, room: @user.room
     robot.send envelope, message
+
+
