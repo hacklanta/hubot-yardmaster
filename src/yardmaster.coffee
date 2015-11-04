@@ -523,8 +523,8 @@ module.exports = (robot) ->
   robot.respond /(build|rebuild) (.+)/i, (msg) ->
     buildJob(robot, msg)
 
-  robot.respond /(disable|enable) (.+)/i, (msg) ->
-    changeJobState(robot, msg)
+  #robot.respond /(disable|enable) (.+)/i, (msg) ->
+  #  changeJobState(robot, msg)
   
   robot.respond /(show|show last|last) (build|failure|output) for (.+)\.?/i, (msg) ->
     showBuildOuput(robot, msg)
