@@ -591,14 +591,14 @@ module.exports = (robot) ->
   robot.respond /watch job (.+)\.?/i, (msg) ->
     watchJob robot, msg
 
-  robot.respond /(?:start|build) (?:slave|builder|node)/i, (msg) ->
-    startSlaveNode (result) ->
-      msg.send result
+  #robot.respond /(?:start|build) (?:slave|builder|node)/i, (msg) ->
+  #  startSlaveNode (result) ->
+  #    msg.send result
 
-  robot.respond /send reinforcements/i, (msg) ->
-    msg.send "The cavalry is on its way."
-    startSlaveNode (result) ->
-      msg.send result
+  #robot.respond /send reinforcements/i, (msg) ->
+  #  msg.send "The cavalry is on its way."
+  #  startSlaveNode (result) ->
+  #    msg.send result
 
   robot.respond /(?:delete|cancel)(?: job)? (.+)/i, (msg) ->
     cancelJob robot, msg
