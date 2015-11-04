@@ -569,12 +569,12 @@ module.exports = (robot) ->
               jobStatus = jobStatus + "#{jobEntry.name} is not building.\n"
           msg.send jobStatus
 
-  robot.respond /set job repos\.?/i, (msg) ->
-    removeJobRepos robot, msg
-    setJobRepos robot, msg
-  
-  robot.respond /remove job repos\.?/i, (msg) ->
-    removeJobRepos robot, msg
+  #robot.respond /set job repos\.?/i, (msg) ->
+  #  removeJobRepos robot, msg
+  #  setJobRepos robot, msg
+  #
+  #robot.respond /remove job repos\.?/i, (msg) ->
+  #  removeJobRepos robot, msg
   
   robot.respond /set (.+) job to (.+)\.?/i, (msg) ->
     setBuildJob robot, msg
