@@ -511,18 +511,12 @@ module.exports = (robot) ->
   robot.respond /(switch|change|build) (.+) (to|with) (.+)\.?/i, (msg) ->
     switchBranch(robot, msg)
 
-  robot.respond /(show\s|current\s|show current\s)?branch for (.+)\.?/i, (msg) ->
-    job = msg.match[2].trim()
-    doesJobExist robot, msg, job, (exists) ->
-      findCurrentBranch robot, msg, job, (branch) ->
-        msg.send "Current branch for #{job} is #{branch}."
+  #robot.respond /(show\s|current\s|show current\s)?branch for (.+)\.?/i, (msg) ->
+  #  job = msg.match[2].trim()
+  #  doesJobExist robot, msg, job, (exists) ->
+  #    findCurrentBranch robot, msg, job, (branch) ->
+  #      msg.send "Current branch for #{job} is #{branch}."
   
-  robot.respond /(go )?(build yourself)|(go )?(ship yourself)\.?/i, (msg) ->
-    if jenkinsHubotJob
-      buildBranch(robot, msg, jenkinsHubotJob)
-    else
-      msg.send("No hubot job found. Set {HUBOT_JENKINS_JOB_NAME} to job name.")
-
   robot.respond /(list jobs|jenkins list|all jobs|jobs)\s*(.*)\.?/i, (msg) ->
     listJobs(robot, msg)
 
