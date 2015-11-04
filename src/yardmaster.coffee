@@ -537,13 +537,13 @@ module.exports = (robot) ->
     getJobTimeStamp robot, msg, "job/#{job}/lastBuild", (timeAndDate) ->
         msg.send "#{job} last built on #{timeAndDate[0]} at #{timeAndDate[1]} utc"
   
-  robot.respond /set branch message to (.+)\.?/i, (msg) ->
-    message = msg.match[1].trim()
-    yardmaster = robot.brain.get('yardmaster') || {}
-    yardmaster.buildMessage ||= {}
-    yardmaster.buildMessage = message
-    robot.brain.set 'yardmaster', yardmaster
-    msg.send "Custom branch message set."
+  #robot.respond /set branch message to (.+)\.?/i, (msg) ->
+  #  message = msg.match[1].trim()
+  #  yardmaster = robot.brain.get('yardmaster') || {}
+  #  yardmaster.buildMessage ||= {}
+  #  yardmaster.buildMessage = message
+  #  robot.brain.set 'yardmaster', yardmaster
+  #  msg.send "Custom branch message set."
 
   robot.respond /remove branch message\.?/i, (msg) ->
     yardmaster = robot.brain.get('yardmaster')
