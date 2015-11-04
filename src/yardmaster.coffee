@@ -545,14 +545,14 @@ module.exports = (robot) ->
   #  robot.brain.set 'yardmaster', yardmaster
   #  msg.send "Custom branch message set."
 
-  robot.respond /remove branch message\.?/i, (msg) ->
-    yardmaster = robot.brain.get('yardmaster')
-    if yardmaster?.buildMessage?
-      delete yardmaster.buildMessage
-      robot.brain.set 'yardmaster', yardmaster
-      msg.send "Custom branch message removed."
-    else
-      msg.send "No custom branch message set. Nothing to delete."
+  #robot.respond /remove branch message\.?/i, (msg) ->
+  #  yardmaster = robot.brain.get('yardmaster')
+  #  if yardmaster?.buildMessage?
+  #    delete yardmaster.buildMessage
+  #    robot.brain.set 'yardmaster', yardmaster
+  #    msg.send "Custom branch message removed."
+  #  else
+  #    msg.send "No custom branch message set. Nothing to delete."
       
   robot.respond /(.+) status\.?/i, (msg) ->
     job = msg.match[1].trim()
