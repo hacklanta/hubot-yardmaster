@@ -529,8 +529,8 @@ module.exports = (robot) ->
   robot.respond /(show|show last|last) (build|failure|output) for (.+)\.?/i, (msg) ->
     showBuildOuput(robot, msg)
   
-  robot.respond /(show|show output|output) for (.+) ([0-9]+)\.?/i, (msg) ->
-    showSpecificBuildOutput(robot, msg)
+  #robot.respond /(show|show output|output) for (.+) ([0-9]+)\.?/i, (msg) ->
+  #  showSpecificBuildOutput(robot, msg)
 
   robot.respond /(?:show|show last|last) (?:build\s)?(?:date|time) for (.+)\.?/i, (msg) ->
     job = msg.match[1].trim()
