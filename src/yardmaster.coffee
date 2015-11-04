@@ -579,14 +579,14 @@ module.exports = (robot) ->
   robot.respond /set (.+) job to (.+)\.?/i, (msg) ->
     setBuildJob robot, msg
 
-  robot.respond /remove (.+) from deployments\.?/i, (msg) ->
-    yardmaster = robot.brain.get('yardmaster')
-    existingDemployments = yardmaster?.deploymentJob?.filter (existingJob) -> existingJob.name != msg.match[1].trim()
-    robot.brain.set 'yardmaster', yardmaster
-    msg.send "Removed #{msg.match[1].trim()} from deployment jobs."
-     
-  robot.respond /(deploy|merge|ship) (.+) to (.+)\.?/i, (msg) ->
-    deployBranchToJob robot, msg
+  #robot.respond /remove (.+) from deployments\.?/i, (msg) ->
+  #  yardmaster = robot.brain.get('yardmaster')
+  #  existingDemployments = yardmaster?.deploymentJob?.filter (existingJob) -> existingJob.name != msg.match[1].trim()
+  #  robot.brain.set 'yardmaster', yardmaster
+  #  msg.send "Removed #{msg.match[1].trim()} from deployment jobs."
+  #   
+  #robot.respond /(deploy|merge|ship) (.+) to (.+)\.?/i, (msg) ->
+  #  deployBranchToJob robot, msg
 
   robot.respond /watch job (.+)\.?/i, (msg) ->
     watchJob robot, msg
