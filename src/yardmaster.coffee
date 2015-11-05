@@ -125,6 +125,23 @@ buildBranch = (robot, msg, job, branch = "") ->
       else
         msg.send "something went wrong with #{res.statusCode} :(" 
 
+
+typeIsArray = Array.isArray || ( value ) -> return {}.toString.call( value ) is '[object Array]'
+
+# Finds out whether or not an item exists in our array.
+Array::where = (query) ->
+    return [] if typeof query isnt "object"
+    hit = Object.keys(query).length
+    results = @filter (item) ->
+        match = 0
+        for key, val of query
+            match += 1 if item[key] is val
+        if match is hit then true else false
+
+    if results.length >=1
+      return true
+    false
+
 getCurrentBranch = (body) ->
   branch = ""
   parseString body, (err, result) ->
@@ -133,12 +150,30 @@ getCurrentBranch = (body) ->
   branch
 
 buildJob = (robot, msg) ->
-  job = msg.match[2].trim()
-  get robot, msg, "job/#{job}/", (res, body) ->
-    if res.statusCode is 404
-      msg.send "No can do. Didn't find job '#{job}'."
-    else if res.statusCode == 200
-      buildBranch(robot, msg, job)
+  # Enable specification of multiple jobs via job1, job2, jobN...
+  job = msg.match[2].trim().split(',')
+
+  # Flatten into a single value since we don't want to do any array parsing later.
+  if job.length == 1
+    job = job[0]
+
+  # Ensure that a job exists by parsing the list of jobs
+  get robot, msg, "api/json", (res, body) ->
+    jenkinsJobs = JSON.parse(body)
+
+    if typeIsArray job
+      for jobName in job
+        jobExist = jenkinsJobs['jobs'].where name: "#{jobName}"
+        if not jobExist
+          msg.reply "couldn't find job with name #{jobName}"
+          return
+    else
+      jobExist = jenkinsJobs['jobs'].where name: "#{job}"
+      if not jobExist
+        msg.reply "couldn't find job with name #{job}"
+        return
+
+    buildBranch(robot, msg, job)
 
 switchBranch = (robot, msg) ->
   job = msg.match[2].trim()
@@ -398,11 +433,11 @@ module.exports = (robot) ->
     )
     cronjob.start()
 
-  robot.respond /(switch|change|build) (.+) (to|with) (.+)\.?/i, (msg) ->
-    switchBranch(robot, msg)
-
   robot.respond /(list jobs|jenkins list|all jobs|jobs)\s*(.*)\.?/i, (msg) ->
     listJobs(robot, msg)
+
+  robot.respond /(build) (.+) (to|with) (.+)\.?/i, (msg) ->
+    buildJob(robot, msg)
 
   robot.respond /(build|rebuild) (.+)/i, (msg) ->
     buildJob(robot, msg)
