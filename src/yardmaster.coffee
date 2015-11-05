@@ -165,12 +165,12 @@ buildJob = (robot, msg) ->
       for jobName in job
         jobExist = jenkinsJobs['jobs'].where name: "#{jobName}"
         if not jobExist
-          msg.reply "couldn't find job with name #{jobName}"
+          msg.reply "sorry, I couldn't find job with name #{jobName}"
           return
     else
       jobExist = jenkinsJobs['jobs'].where name: "#{job}"
       if not jobExist
-        msg.reply "couldn't find job with name #{job}"
+        msg.reply "sorry, I couldn't find job with name #{job}"
         return
 
     buildBranch(robot, msg, job)
