@@ -175,38 +175,6 @@ buildJob = (robot, msg) ->
 
     buildBranch(robot, msg, job)
 
-switchBranch = (robot, msg) ->
-  job = msg.match[2].trim()
-  branch = msg.match[4].trim()
-
-  ifJobEnabled robot, msg, job, (jobStatus) ->
-    checkBranchName robot, msg, job, branch, (branchValid) ->
-      get robot, msg, "job/#{job}/config.xml", (res, body) ->
-        # this is a regex replace for the branch name
-        # Spaces below are to keep the xml formatted nicely
-        # TODO: parse as XML and replace string (drop regex)
-        config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>" 
-  
-        # try to update config
-        post robot, "job/#{job}/config.xml", config, (err, res, body) ->
-          if err
-            msg.send "Encountered an error :( #{err}"
-          else if res.statusCode is 200
-            # if update successful build branch
-            buildBranch(robot, msg, job, branch)  
-          else if res.statusCode is 404
-            msg.send "Job '#{job}' not found" 
-          else
-            msg.send "something went wrong :(" 
-
-findCurrentBranch = (robot, msg, job, callback) ->
-  get robot, msg, "job/#{job}/config.xml", (res, body) ->
-    currentBranch = getCurrentBranch(body)
-    if currentBranch? 
-       callback(currentBranch)
-    else
-       msg.send "Did not find current branch for #{job}."
-
 listJobs = (robot, msg) ->
   jobFilter = new RegExp(msg.match[2].trim(),"i")
   
@@ -226,20 +194,6 @@ listJobs = (robot, msg) ->
       Here are the jobs
       #{response}
     """
-
-changeJobState = (robot, msg) ->
-  changeState = msg.match[1].trim()
-  job = msg.match[2].trim()
-
-  post robot, "job/#{job}/#{changeState}", "", (err, res, body) ->
-    if err
-      msg.send "something went wrong! Error: #{err}."
-    else if res.statusCode == 302
-      msg.send "#{job} has been set to #{changeState}."
-    else if res.statusCode == 404
-      msg.send "Job '#{job}' does not exist."
-    else
-      msg.send "Not sure what happened. You should check #{jenkinsURL}/job/#{job}/"
 
 getJobTimeStamp = (robot, msg, jobUrl, callback) ->
   get robot, msg, "#{jobUrl}/api/json", (res, body) ->
@@ -310,20 +264,6 @@ trackJobs = (robot, msg, jobs, jobStatus, callback) ->
           callback(jobStatus)
 
         jobStatus.push { name: job }
-
-setBuildJob = (robot, msg) ->
-  yardmaster = robot.brain.get('yardmaster') || {}
-  yardmaster.deploymentJob ||= []
-  buildName = msg.match[1].trim()
-  buildJob = msg.match[2].trim()
-  
-  doesJobExist robot, msg, buildJob, (exists) ->
-    existingJobs = yardmaster.deploymentJob?.filter (potentialJob) -> potentialJob.name != buildName
-    if existingJobs?
-      yardmaster.deploymentJob = existingJobs  
-    yardmaster.deploymentJob.push { name: buildName, job: buildJob }
-    robot.brain.set 'yardmaster', yardmaster
-    msg.send "#{buildName} set to #{buildJob}."
 
 registerNewWatchedJob = (robot, id, user, url, queue, msg) ->
   job = new WatchJob(id, user)
@@ -464,9 +404,6 @@ module.exports = (robot) ->
             else
               jobStatus = jobStatus + "#{jobEntry.name} is not building.\n"
           msg.send jobStatus
-
-  robot.respond /set (.+) job to (.+)\.?/i, (msg) ->
-    setBuildJob robot, msg
 
   robot.respond /watch job (.+)\.?/i, (msg) ->
     watchJob robot, msg
