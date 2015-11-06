@@ -101,29 +101,30 @@ doesJobExist = (robot, msg, job, callback) ->
 
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
-    post robot, "job/#{job}/build", "", (err, res, body) ->
-      queueUrl = res.headers?["location"]
+    #params = msg
+    #post robot, "job/#{job}/build", "", (err, res, body) ->
+    #  queueUrl = res.headers?["location"]
 
-      if err
-        msg.send "Encountered an error on build :( #{err}"
-      else if res.statusCode is 201
-        if branch
-          customMessage = robot.brain.get("yardmaster")?["build-message"]
-          if customMessage
-            customMessage = customMessage.replace /job/, job
-            customMessage = customMessage.replace /branch/, branch
-            msg.send customMessage
-            watchQueue robot, queueUrl, msg
-          else
-            msg.send "#{job} is building with #{branch}. I'll keep an eye on it for you."
-            watchQueue robot, queueUrl, msg
-        else if job == jenkinsHubotJob
-          msg.send "I'll Be right back"
-        else
-          msg.send "#{job} is building. I'll let you know when it's done."
-          watchQueue robot, queueUrl, msg
-      else
-        msg.send "something went wrong with #{res.statusCode} :(" 
+    #  if err
+    #    msg.send "Encountered an error on build :( #{err}"
+    #  else if res.statusCode is 201
+    #    if branch
+    #      customMessage = robot.brain.get("yardmaster")?["build-message"]
+    #      if customMessage
+    #        customMessage = customMessage.replace /job/, job
+    #        customMessage = customMessage.replace /branch/, branch
+    #        msg.send customMessage
+    #        watchQueue robot, queueUrl, msg
+    #      else
+    #        msg.send "#{job} is building with #{branch}. I'll keep an eye on it for you."
+    #        watchQueue robot, queueUrl, msg
+    #    else if job == jenkinsHubotJob
+    #      msg.send "I'll Be right back"
+    #    else
+    #      msg.send "#{job} is building. I'll let you know when it's done."
+    #      watchQueue robot, queueUrl, msg
+    #  else
+    #    msg.send "something went wrong with #{res.statusCode} :(" 
 
 
 typeIsArray = Array.isArray || ( value ) -> return {}.toString.call( value ) is '[object Array]'
@@ -150,8 +151,9 @@ getCurrentBranch = (body) ->
   branch
 
 buildJob = (robot, msg) ->
+
   # Enable specification of multiple jobs via job1, job2, jobN...
-  job = msg.match[2].trim().split(',')
+  job = msg.match[2].trim().split(",")
 
   # Flatten into a single value since we don't want to do any array parsing later.
   if job.length == 1
@@ -173,6 +175,7 @@ buildJob = (robot, msg) ->
         msg.reply "sorry, I couldn't find job with name #{job}"
         return
 
+    # We succeeded the check, now we actually do the building
     buildBranch(robot, msg, job)
 
 listJobs = (robot, msg) ->
@@ -376,10 +379,10 @@ module.exports = (robot) ->
   robot.respond /(list jobs|jenkins list|all jobs|jobs)\s*(.*)\.?/i, (msg) ->
     listJobs(robot, msg)
 
-  robot.respond /(build) (.+) (to|with) (.+)\.?/i, (msg) ->
+  robot.respond /(build|rebuild) ([\w+]*[,\w+]*)/i, (msg) ->
     buildJob(robot, msg)
 
-  robot.respond /(build|rebuild) (.+)/i, (msg) ->
+  robot.respond /(build|rebuild) (.*) (with) (.+)\.?/i, (msg) ->
     buildJob(robot, msg)
 
   robot.respond /(show|show last|last) (build|failure|output) for (.+)\.?/i, (msg) ->
