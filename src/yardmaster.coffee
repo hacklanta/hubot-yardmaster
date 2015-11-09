@@ -100,31 +100,49 @@ doesJobExist = (robot, msg, job, callback) ->
         callback(true)
 
 buildBranch = (robot, msg, job, branch = "") ->
-  ifJobEnabled robot, msg, job, (jobStatus) ->
-    #params = msg
-    #post robot, "job/#{job}/build", "", (err, res, body) ->
-    #  queueUrl = res.headers?["location"]
+  params = msg.match['4']
 
-    #  if err
-    #    msg.send "Encountered an error on build :( #{err}"
-    #  else if res.statusCode is 201
-    #    if branch
-    #      customMessage = robot.brain.get("yardmaster")?["build-message"]
-    #      if customMessage
-    #        customMessage = customMessage.replace /job/, job
-    #        customMessage = customMessage.replace /branch/, branch
-    #        msg.send customMessage
-    #        watchQueue robot, queueUrl, msg
-    #      else
-    #        msg.send "#{job} is building with #{branch}. I'll keep an eye on it for you."
-    #        watchQueue robot, queueUrl, msg
-    #    else if job == jenkinsHubotJob
-    #      msg.send "I'll Be right back"
-    #    else
-    #      msg.send "#{job} is building. I'll let you know when it's done."
-    #      watchQueue robot, queueUrl, msg
-    #  else
-    #    msg.send "something went wrong with #{res.statusCode} :(" 
+  if typeIsArray job
+    for jobName in job
+      do (jobName) ->
+        console.log(jobName)
+        if params
+          #msg.send "I'm building #{jobName}"
+          post robot, "job/#{jobName}/buildWithParameters?#{params}", "", (err, res, body) ->
+            queueUrl = res.headers?["location"]
+            if err
+              msg.reply "Encountered an error on build. Error I got back was: #{err}"
+            else if res.statusCode is 201
+              msg.reply "#{jobName} has been added to the queue with the following parameters: \"#{params}\"."
+              watchQueue robot, queueUrl, msg, jobName
+        else
+          msg.send "I'm building #{jobName}"
+          post robot, "job/#{jobName}/buildWithParameters?#{params}", "", (err, res, body) ->
+            queueUrl = res.headers?["location"]
+            if err
+              msg.reply "Encountered an error on build. Error I got back was: #{err}"
+            else if res.statusCode is 201
+              msg.reply "#{jobName} hsa been added to the queue."
+              watchQueue robot, queueUrl, msg, jobName
+
+  else
+    console.log(job)
+    if params
+      post robot, "job/#{job}/buildWithParameters?", "", (err, res, body) ->
+        queueUrl = res.headers?["location"]
+        if err
+          msg.reply "Encountered an error on build. Error I got back was: #{err}"
+        else if res.statusCode is 201
+          msg.reply "#{job} has been added to the queue."
+          watchQueue robot, queueUrl, msg, job
+    else
+      post robot, "job/#{job}/build/", "", (err, res, body) ->
+        queueUrl = res.headers?["location"]
+        if err
+          msg.reply "Encountered an error on build. Error I got back was: #{err}"
+        else if res.statusCode is 201
+          msg.reply "#{job} has been added to the queue."
+          watchQueue robot, queueUrl, msg, job
 
 
 typeIsArray = Array.isArray || ( value ) -> return {}.toString.call( value ) is '[object Array]'
@@ -151,14 +169,20 @@ getCurrentBranch = (body) ->
   branch
 
 buildJob = (robot, msg) ->
-
   # Enable specification of multiple jobs via job1, job2, jobN...
-  job = msg.match[2].trim().split(",")
+  jobTemp = msg.match[3]
+
+  if not jobTemp
+    job = msg.match[2].trim().split(",")
+  else
+    job = jobTemp.trim().split(",")
+      
+  console.log("I got a request. It says: #{job}")
 
   # Flatten into a single value since we don't want to do any array parsing later.
   if job.length == 1
     job = job[0]
-
+    
   # Ensure that a job exists by parsing the list of jobs
   get robot, msg, "api/json", (res, body) ->
     jenkinsJobs = JSON.parse(body)
@@ -167,7 +191,7 @@ buildJob = (robot, msg) ->
       for jobName in job
         jobExist = jenkinsJobs['jobs'].where name: "#{jobName}"
         if not jobExist
-          msg.reply "sorry, I couldn't find job with name #{jobName}"
+          msg.reply "Sorry, I couldn't find job with name #{jobName}"
           return
     else
       jobExist = jenkinsJobs['jobs'].where name: "#{job}"
@@ -262,7 +286,7 @@ trackJobs = (robot, msg, jobs, jobStatus, callback) ->
           trackJobs robot, msg, jobs, jobStatus, (callback)
         else if jobs.length
            trackJobs robot, msg, jobs, jobStatus, (callback)
-        else 
+        else
           jobStatus.push { name: job }
           callback(jobStatus)
 
@@ -285,7 +309,7 @@ unregisterWatchedJob = (robot, id)->
     delete JOBS[id]
     robot.brain.set 'yardmaster', yardmaster
 
-createCronWatchJob = (robot, url, msg, queue = false) -> 
+createCronWatchJob = (robot, url, msg, queue = false, jobName="") -> 
   id = Math.floor(Math.random() * 1000000) while !id? || JOBS[id]
 
   user = msg.message.user
@@ -298,7 +322,7 @@ createCronWatchJob = (robot, url, msg, queue = false) ->
   registerNewWatchedJob robot, id, user, url, queue, msg
   
   if !queue
-    msg.send "job #{url} added with id #{id}."
+    msg.reply "job #{jobName} is now building at #{url}"
 
 trimUrl = (url) ->
   urlCorrect = /[0-9]/.test(url.slice (url.length - 1))
@@ -379,10 +403,8 @@ module.exports = (robot) ->
   robot.respond /(list jobs|jenkins list|all jobs|jobs)\s*(.*)\.?/i, (msg) ->
     listJobs(robot, msg)
 
-  robot.respond /(build|rebuild) ([\w+]*[,\w+]*)/i, (msg) ->
-    buildJob(robot, msg)
-
-  robot.respond /(build|rebuild) (.*) (with) (.+)\.?/i, (msg) ->
+  robot.respond /(build|rebuild)\s(([\w\.\-_][,\w\.\-_]+)\swith\s(.*)|([\w+\.\-_ ][,\w\.\-_ ]+)|([\w+\.\-_ ]))/i, (msg) ->
+    console.log("Hit multijob with params switch")
     buildJob(robot, msg)
 
   robot.respond /(show|show last|last) (build|failure|output) for (.+)\.?/i, (msg) ->
@@ -429,7 +451,7 @@ class WatchJob
 
         if result?
           unregisterWatchedJob robot, job.id
-          msg.send "@#{job.user.name}, job #{url} finished with status: #{result}."
+          msg.reply "Hi there! job #{url} has finished with status: #{result}."
 
   checkQueueStatus: (url, robot, job, msg) ->
     getByFullUrl robot, url, (res, body) ->
@@ -461,6 +483,6 @@ class WatchJob
 
   sendMessage: (robot, message) ->
     envelope = user: @user, room: @user.room
-    robot.send envelope, message
+    robot.reply envelope, message
 
 
