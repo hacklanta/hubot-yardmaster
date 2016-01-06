@@ -133,8 +133,12 @@ buildFeedback = (robot, msg, job, branch) ->
 
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
-    console.log msg.match
-    post robot, "job/#{job}/build", "", buildFeedback(robot, msg, job, branch)
+    if msg.match[3]?
+      parameters = msg.match[3].trim().split(' ').join('&')
+      console.log "job/#{job}/buildWithParameters?#{parameters}"
+      post robot, "job/#{job}/buildWithParameters?#{parameters}", "", buildFeedback(robot, msg, job, branch)
+    else
+      post robot, "job/#{job}/build", "", buildFeedback(robot, msg, job, branch)
 
 getCurrentBranch = (body) ->
   branch = ""
