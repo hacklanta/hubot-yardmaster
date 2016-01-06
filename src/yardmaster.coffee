@@ -106,31 +106,34 @@ doesJobExist = (robot, msg, job, callback) ->
       else
         callback(true)
 
+buildFeedback = (robot, msg, job, branch) ->
+  (err, res, body) ->
+    queueUrl = res.headers?["location"]
+
+    if err
+      msg.send "Encountered an error on build :( #{err}"
+    else if res.statusCode is 201
+      if branch
+        customMessage = robot.brain.get("yardmaster")?["build-message"]
+        if customMessage
+          customMessage = customMessage.replace /job/, job
+          customMessage = customMessage.replace /branch/, branch
+          msg.send customMessage
+          watchQueue robot, queueUrl, msg
+        else
+          msg.send "#{job} is building with #{branch}. I'll keep an eye on it for you."
+          watchQueue robot, queueUrl, msg
+      else if job == jenkinsHubotJob
+        msg.send "I'll Be right back"
+      else
+        msg.send "#{job} is building. I'll let you know when it's done."
+        watchQueue robot, queueUrl, msg
+    else
+      msg.send "something went wrong with #{res.statusCode} :("
+
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
-    post robot, "job/#{job}/build", "", (err, res, body) ->
-      queueUrl = res.headers?["location"]
-
-      if err
-        msg.send "Encountered an error on build :( #{err}"
-      else if res.statusCode is 201
-        if branch
-          customMessage = robot.brain.get("yardmaster")?["build-message"]
-          if customMessage
-            customMessage = customMessage.replace /job/, job
-            customMessage = customMessage.replace /branch/, branch
-            msg.send customMessage
-            watchQueue robot, queueUrl, msg
-          else
-            msg.send "#{job} is building with #{branch}. I'll keep an eye on it for you."
-            watchQueue robot, queueUrl, msg
-        else if job == jenkinsHubotJob
-          msg.send "I'll Be right back"
-        else
-          msg.send "#{job} is building. I'll let you know when it's done."
-          watchQueue robot, queueUrl, msg
-      else
-        msg.send "something went wrong with #{res.statusCode} :(" 
+    post robot, "job/#{job}/build", "", buildFeedback(robot, msg, job, branch)
 
 getCurrentBranch = (body) ->
   branch = ""
