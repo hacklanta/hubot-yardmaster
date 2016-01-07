@@ -72,34 +72,38 @@ setAuthentication = (robot, msg) ->
   msg.send "Done. From now on I'll authenticate your requests to jenkins as #{jenkinsUsername}."
 
 getByFullUrl = (robot, msg, url, callback) ->
-  robot.http(url)
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .get() (err, res, body) ->
-      if err
-        robot.send "Encountered an error :( #{err}"
-      else
-        callback(res, body)
+  withAuthentication robot, msg, (user, apiKey) ->
+    robot.http(url)
+      .auth("#{user}", "#{apiKey}")
+      .get() (err, res, body) ->
+        if err
+          robot.send "Encountered an error :( #{err}"
+        else
+          callback(res, body)
 
 get = (robot, msg, queryOptions, callback) ->
-  robot.http("#{jenkinsURL}/#{queryOptions}")
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .get() (err, res, body) ->
-      if err
-        msg.send "Encountered an error :( #{err}"
-      else
-        callback(res, body)
+  withAuthentication robot, msg, (user, apiKey) ->
+    robot.http("#{jenkinsURL}/#{queryOptions}")
+      .auth("#{user}", "#{apiKey}")
+      .get() (err, res, body) ->
+        if err
+          msg.send "Encountered an error :( #{err}"
+        else
+          callback(res, body)
 
 post = (robot, msg, queryOptions, postOptions, callback) ->
-  robot.http("#{jenkinsURL}/#{queryOptions}")
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .post(postOptions) (err, res, body) ->
-      callback(err, res, body)
+  withAuthentication robot, msg, (user, apiKey) ->
+    robot.http("#{jenkinsURL}/#{queryOptions}")
+      .auth("#{user}", "#{apiKey}")
+      .post(postOptions) (err, res, body) ->
+        callback(err, res, body)
 
 postByFullUrl = (robot, msg, url, postOptions, callback) ->
-  robot.http(url)
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .post(postOptions) (err, res, body) ->
-      callback(err, res, body)
+  withAuthentication robot, msg, (user, apiKey) ->
+    robot.http(url)
+      .auth("#{user}", "#{apiKey}")
+      .post(postOptions) (err, res, body) ->
+        callback(err, res, body)
 
 ifJobEnabled = (robot, msg, job, callback) ->
   get robot, msg, "job/#{job}/config.xml", (res, body) ->
