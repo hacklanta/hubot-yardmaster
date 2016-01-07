@@ -71,7 +71,7 @@ setAuthentication = (robot, msg) ->
 
   msg.send "Done. From now on I'll authenticate your requests to jenkins as #{jenkinsUsername}."
 
-getByFullUrl = (robot, url, callback) ->
+getByFullUrl = (robot, msg, url, callback) ->
   robot.http(url)
     .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
     .get() (err, res, body) ->
@@ -89,13 +89,13 @@ get = (robot, msg, queryOptions, callback) ->
       else
         callback(res, body)
 
-post = (robot, queryOptions, postOptions, callback) ->
+post = (robot, msg, queryOptions, postOptions, callback) ->
   robot.http("#{jenkinsURL}/#{queryOptions}")
     .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
     .post(postOptions) (err, res, body) ->
       callback(err, res, body)
 
-postByFullUrl = (robot, url, postOptions, callback) ->
+postByFullUrl = (robot, msg, url, postOptions, callback) ->
   robot.http(url)
     .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
     .post(postOptions) (err, res, body) ->
@@ -131,7 +131,7 @@ doesJobExist = (robot, msg, job, callback) ->
 
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
-    post robot, "job/#{job}/build", "", (err, res, body) ->
+    post robot, msg, "job/#{job}/build", "", (err, res, body) ->
       queueUrl = res.headers?["location"]
 
       if err
@@ -183,7 +183,7 @@ switchBranch = (robot, msg) ->
         config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"
 
         # try to update config
-        post robot, "job/#{job}/config.xml", config, (err, res, body) ->
+        post robot, msg, "job/#{job}/config.xml", config, (err, res, body) ->
           if err
             msg.send "Encountered an error :( #{err}"
           else if res.statusCode is 200
@@ -226,7 +226,7 @@ changeJobState = (robot, msg) ->
   changeState = msg.match[1].trim()
   job = msg.match[2].trim()
 
-  post robot, "job/#{job}/#{changeState}", "", (err, res, body) ->
+  post robot, msg, "job/#{job}/#{changeState}", "", (err, res, body) ->
     if err
       msg.send "something went wrong! Error: #{err}."
     else if res.statusCode == 302
@@ -465,7 +465,7 @@ watchQueue = (robot, url, msg) ->
 
   queueUrl = "#{jenkinsURL}/queue/item/#{jobNumber}/api/json"
 
-  getByFullUrl robot, queueUrl, (res, body) ->
+  getByFullUrl robot, msg, queueUrl, (res, body) ->
     if res.statusCode is 404
       msg.send "#{url} does not seem to be a valid url. Couldn't watch job."
     else
@@ -474,7 +474,7 @@ watchQueue = (robot, url, msg) ->
 watchJob = (robot, msg) ->
   jobUrl = trimUrl msg.match[1].trim()
 
-  getByFullUrl robot, "#{jobUrl}/api/json", (res, body) ->
+  getByFullUrl robot, msg, "#{jobUrl}/api/json", (res, body) ->
     if res.statusCode is 404
       msg.send "#{jobUrl} does not seem to be a valid job url."
     else
@@ -483,13 +483,13 @@ watchJob = (robot, msg) ->
 cancelJob = (robot, msg) ->
   jobUrl = trimUrl msg.match[1].trim()
 
-  postByFullUrl robot, "#{jobUrl}/stop", "", (err, res, body) ->
+  postByFullUrl robot, msg, "#{jobUrl}/stop", "", (err, res, body) ->
     if err
       msg.send "got #{err} when tryign to post to #{jobUrl}/stop"
     else if res.statusCode is 404
       msg.send "#{jobUrl} does not seem to be a valid job url."
     else
-      getByFullUrl robot, "#{jobUrl}/api/json", (res, body) ->
+      getByFullUrl robot, msg, "#{jobUrl}/api/json", (res, body) ->
         result = JSON.parse(body).result
         if result == "ABORTED"
           msg.send "Job successfully canceled. Ready for new orders."
@@ -513,7 +513,7 @@ module.exports = (robot) ->
       if nodes.length > 0
         name = nodes[0].displayName
         encodedName = encodeURIComponent name
-        post robot, "/computer/#{encodedName}/launchSlaveAgent", "", (err, res, body) ->
+        post robot, msg, "/computer/#{encodedName}/launchSlaveAgent", "", (err, res, body) ->
           callback("#{name} started. Check #{jenkinsURL}/computer/#{encodedName}/log for more details.")
       else
         callback("No available nodes to build.")
@@ -642,7 +642,7 @@ class WatchJob
     @user = user
 
   checkJobStatus: (url, robot, job, msg) ->
-    getByFullUrl robot, "#{url}/api/json", (res, body) ->
+    getByFullUrl robot, msg, "#{url}/api/json", (res, body) ->
       if res.statusCode is 404
         unregisterWatchedJob robot, job.id
         msg.send "#{url} does not seem to be a valid job url. Removing from watch list"
@@ -654,7 +654,7 @@ class WatchJob
           msg.send "@#{job.user.name}, job #{url} finished with status: #{result}."
 
   checkQueueStatus: (url, robot, job, msg) ->
-    getByFullUrl robot, url, (res, body) ->
+    getByFullUrl robot, msg, url, (res, body) ->
       if res.statusCode is 404
         unregisterWatchedJob robot, job.id
         msg.send "#{url} does not seem to be a valid job url. Removing from watch list"
