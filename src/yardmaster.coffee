@@ -48,6 +48,29 @@ monitorJenkins = process.env.MONITOR_JENKINS || ''
 
 JOBS = {}
 
+withAuthentication = (robot, msg, callback) ->
+  authStructure = robot.brain.get('yardmaster')?.auth?[msg.message.user] || {}
+
+  user = authStructure.user || jenkinsUser
+  apiKey = authStructure.apiKey || jenkinsUserAPIKey
+
+  callback(user, apiKey)
+
+setAuthentication = (robot, msg) ->
+  jenkinsUsername = msg.match[1]
+  jenkinsApiKey = msg.match[2]
+
+  yardmaster = robot.brain.get('yardmaster') || {}
+  yardmaster.auth ||= {}
+
+  yardmaster.auth[msg.message.user] =
+    user: jenkinsUsername
+    apiKey: jenkinsApiKey
+
+  robot.brain.set 'yardmaster', yardmaster
+
+  msg.send "Done. From now on I'll authenticate your requests to jenkins as #{jenkinsUsername}."
+
 getByFullUrl = (robot, url, callback) ->
   robot.http(url)
     .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
@@ -507,6 +530,9 @@ module.exports = (robot) ->
             console.log result
     )
     cronjob.start()
+
+  robot.respond /yardmaster auth ([^ ]+) (.+)/i, (msg) ->
+    setAuthentication(robot, msg)
 
   robot.respond /(switch|change|build) (.+) (to|with) (.+)\.?/i, (msg) ->
     switchBranch(robot, msg)
