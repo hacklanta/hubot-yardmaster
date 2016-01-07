@@ -134,9 +134,17 @@ buildFeedback = (robot, msg, job, branch) ->
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
     if msg.match[3]?
-      parameters = msg.match[3].trim().split(' ').join('&')
-      console.log "job/#{job}/buildWithParameters?#{parameters}"
-      post robot, "job/#{job}/buildWithParameters?#{parameters}", "", buildFeedback(robot, msg, job, branch)
+      rawParameters = msg.match[3].trim().split(' ')
+
+      parameters = for rawParameter in rawParameters
+        [rawKey, rawValue] = rawParameter.split('=')
+        encodedValue = encodeURIComponent(rawValue)
+        "#{rawKey}=#{encodedValue}"
+
+      joinedParameters = parameters.join('&')
+
+      console.log "job/#{job}/buildWithParameters?#{joinedParameters}"
+      post robot, "job/#{job}/buildWithParameters?#{joinedParameters}", "", buildFeedback(robot, msg, job, branch)
     else
       post robot, "job/#{job}/build", "", buildFeedback(robot, msg, job, branch)
 
