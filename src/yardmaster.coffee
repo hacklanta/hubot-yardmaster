@@ -7,7 +7,7 @@
 # Configuration:
 #   HUBOT_JENKINS_URL - Jenkins base URL
 #   HUBOT_JENKINS_USER - Jenins admin user
-#   HUBOT_JENKINS_USER_API_KEY - Admin user API key. Not your password. Find at "{HUBOT_JENKINS_URL}/{HUBOT_JENKINS_USER}/configure" 
+#   HUBOT_JENKINS_USER_API_KEY - Admin user API key. Not your password. Find at "{HUBOT_JENKINS_URL}/{HUBOT_JENKINS_USER}/configure"
 #   HUBOT_JENKINS_JOB_NAME - Hubot job name on Jenkins (optional)
 #   GITHUB_TOKEN - Github API Auth token (optional)
 #   MONITOR_JENKINS - true | false : If true, hubot will monitor the jenkins queue and start nodes when job queue is greater than 2.
@@ -32,8 +32,8 @@
 #   hubot (show|show last|last) (build) (date|time) for {job} - shows the last build date and time for a job
 #   hubot (start|build) (builder|slave|node) - starts one of the available slave nodes.
 #   hubot send reinforcements - starts one of the available slave nodes.
-# 
-# Author: 
+#
+# Author:
 #   @riveramj
 
 {parseString} = require 'xml2js'
@@ -85,7 +85,7 @@ ifJobEnabled = (robot, msg, job, callback) ->
     else
       parseString body, (err, result) ->
         jobStatus = (result?.project?.disabled[0] == 'true')
-        
+
         if jobStatus
           msg.send "No can do. '#{job}' is disabled."
         else
@@ -130,7 +130,7 @@ buildBranch = (robot, msg, job, branch = "") ->
           msg.send "#{job} is building. I'll let you know when it's done."
           watchQueue robot, queueUrl, msg
       else
-        msg.send "something went wrong with #{res.statusCode} :(" 
+        msg.send "something went wrong with #{res.statusCode} :("
 
 getCurrentBranch = (body) ->
   branch = ""
@@ -157,31 +157,31 @@ switchBranch = (robot, msg) ->
         # this is a regex replace for the branch name
         # Spaces below are to keep the xml formatted nicely
         # TODO: parse as XML and replace string (drop regex)
-        config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>" 
-  
+        config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"
+
         # try to update config
         post robot, "job/#{job}/config.xml", config, (err, res, body) ->
           if err
             msg.send "Encountered an error :( #{err}"
           else if res.statusCode is 200
             # if update successful build branch
-            buildBranch(robot, msg, job, branch)  
+            buildBranch(robot, msg, job, branch)
           else if res.statusCode is 404
-            msg.send "Job '#{job}' not found" 
+            msg.send "Job '#{job}' not found"
           else
-            msg.send "something went wrong :(" 
+            msg.send "something went wrong :("
 
 findCurrentBranch = (robot, msg, job, callback) ->
   get robot, msg, "job/#{job}/config.xml", (res, body) ->
     currentBranch = getCurrentBranch(body)
-    if currentBranch? 
+    if currentBranch?
        callback(currentBranch)
     else
        msg.send "Did not find current branch for #{job}."
 
 listJobs = (robot, msg) ->
   jobFilter = new RegExp(msg.match[2].trim(),"i")
-  
+
   get robot, msg, "api/json", (res, body) ->
     response = ""
     jobs = JSON.parse(body).jobs
@@ -193,7 +193,7 @@ listJobs = (robot, msg) ->
           response += "#{job.name} is #{lastBuildState}: #{job.url}\n"
       else
         response += "#{job.name} is #{lastBuildState}: #{job.url}\n"
-      
+
     msg.send """
       Here are the jobs
       #{response}
@@ -238,7 +238,7 @@ showBuildOuput = (robot, msg) ->
 showSpecificBuildOutput = (robot, msg) ->
   job = msg.match[2].trim()
   jobNumber = msg.match[3].trim()
-  
+
   get robot, msg, "job/#{job}/#{jobNumber}/logText/progressiveText", (res, body) ->
     if res.statusCode is 404
       msg.send "Did not find output for job number '#{jobNumber}' for '#{job}."
@@ -246,7 +246,7 @@ showSpecificBuildOutput = (robot, msg) ->
       getJobTimeStamp robot, msg, "job/#{job}/#{lastJob}", (timeStamp) ->
       msg.send """
         #{jenkinsURL}/job/#{job}/#{jobNumber}/console
-        Output is: 
+        Output is:
         #{body}
       """
 isJobBuilding = (robot, msg, job, callback) ->
@@ -277,7 +277,7 @@ trackJobs = (robot, msg, jobs, jobStatus, callback) ->
           trackJobs robot, msg, jobs, jobStatus, (callback)
         else if jobs.length
            trackJobs robot, msg, jobs, jobStatus, (callback)
-        else 
+        else
           jobStatus.push { name: job }
           callback(jobStatus)
 
@@ -304,7 +304,7 @@ removeJobRepos = (robot, msg) ->
     delete yardmaster.jobRepos
     robot.brain.set 'yardmaster', yardmaster
     msg.send "Job repos deleted"
-  else 
+  else
     msg.send "No job repos set. Nothing to delete."
 
 getOwnerAndRepoForRepoURL = (repoURL) ->
@@ -315,17 +315,17 @@ getOwnerAndRepoForRepoURL = (repoURL) ->
   repo = ///
     .*/(.*)\..*
     ///.exec repoURL
-  
+
   [owner, repo]
 
 checkBranchName = (robot, msg, job, branch, callback) ->
   yardmaster = robot.brain.get 'yardmaster' || {}
   currentJob = yardmaster?.jobRepos?.filter (potentialJob) -> potentialJob.job == job
-  
-  doesJobExist robot, msg, job, (exists) -> 
+
+  doesJobExist robot, msg, job, (exists) ->
     if githubToken.length && currentJob?[0].repo?
       [owner, repo] = getOwnerAndRepoForRepoURL currentJob[0].repo
-      
+
       robot.http("https://api.github.com/repos/#{owner[1]}/#{repo[1]}/branches/#{branch}")
         .header('Authorization', "token #{githubToken}")
         .get() (err, res, body) ->
@@ -336,21 +336,21 @@ checkBranchName = (robot, msg, job, branch, callback) ->
               callback()
             else
               msg.send "Branch name '#{branch}' is not valid for repo '#{repo[1]}'."
-    else 
+    else
       callback()
-          
+
 deployBranchToJob = (robot, msg) ->
   deployBranch = msg.match[2].trim()
   deployName = msg.match[3].trim()
   yardmaster = robot.brain.get('yardmaster') || {}
-  
+
   deployJob = yardmaster?.buildJob?.filter (potentialJob) -> potentialJob.name == deployName
   knownJob = yardmaster?.jobRepos?.filter (potentialJob) -> potentialJob.job == deployJob?[0].job
   repoURL = knownJob?[0].repo
-  
+
   if deployJob.length && repoURL?
     [owner, repo] = getOwnerAndRepoForRepoURL repoURL
-    
+
     findCurrentBranch robot, msg, deployJob[0].job, (branch) ->
       body = {
         "base": branch,
@@ -372,18 +372,18 @@ deployBranchToJob = (robot, msg) ->
               """
   else
     msg.send "Did not find '#{deployJob}' in list of known deployment targets."
-      
+
 
 setBuildJob = (robot, msg) ->
   yardmaster = robot.brain.get('yardmaster') || {}
   yardmaster.deploymentJob ||= []
   buildName = msg.match[1].trim()
   buildJob = msg.match[2].trim()
-  
+
   doesJobExist robot, msg, buildJob, (exists) ->
     existingJobs = yardmaster.deploymentJob?.filter (potentialJob) -> potentialJob.name != buildName
     if existingJobs?
-      yardmaster.deploymentJob = existingJobs  
+      yardmaster.deploymentJob = existingJobs
     yardmaster.deploymentJob.push { name: buildName, job: buildJob }
     robot.brain.set 'yardmaster', yardmaster
     msg.send "#{buildName} set to #{buildJob}."
@@ -405,7 +405,7 @@ unregisterWatchedJob = (robot, id)->
     delete JOBS[id]
     robot.brain.set 'yardmaster', yardmaster
 
-createCronWatchJob = (robot, url, msg, queue = false) -> 
+createCronWatchJob = (robot, url, msg, queue = false) ->
   id = Math.floor(Math.random() * 1000000) while !id? || JOBS[id]
 
   user = msg.message.user
@@ -414,9 +414,9 @@ createCronWatchJob = (robot, url, msg, queue = false) ->
   yardmaster.watchJobs ||= {}
   yardmaster.watchJobs[id] = { jobUrl: url, user: user }
   robot.brain.set 'yardmaster', yardmaster
-  
+
   registerNewWatchedJob robot, id, user, url, queue, msg
-  
+
   if !queue
     msg.send "job #{url} added with id #{id}."
 
@@ -516,7 +516,7 @@ module.exports = (robot) ->
     doesJobExist robot, msg, job, (exists) ->
       findCurrentBranch robot, msg, job, (branch) ->
         msg.send "Current branch for #{job} is #{branch}."
-  
+
   robot.respond /(go )?(build yourself)|(go )?(ship yourself)\.?/i, (msg) ->
     if jenkinsHubotJob
       buildBranch(robot, msg, jenkinsHubotJob)
@@ -531,10 +531,10 @@ module.exports = (robot) ->
 
   robot.respond /(disable|enable) (.+)/i, (msg) ->
     changeJobState(robot, msg)
-  
+
   robot.respond /(show|show last|last) (build|failure|output) for (.+)\.?/i, (msg) ->
     showBuildOuput(robot, msg)
-  
+
   robot.respond /(show|show output|output) for (.+) ([0-9]+)\.?/i, (msg) ->
     showSpecificBuildOutput(robot, msg)
 
@@ -542,7 +542,7 @@ module.exports = (robot) ->
     job = msg.match[1].trim()
     getJobTimeStamp robot, msg, "job/#{job}/lastBuild", (timeAndDate) ->
         msg.send "#{job} last built on #{timeAndDate[0]} at #{timeAndDate[1]} utc"
-  
+
   robot.respond /set branch message to (.+)\.?/i, (msg) ->
     message = msg.match[1].trim()
     yardmaster = robot.brain.get('yardmaster') || {}
@@ -559,7 +559,7 @@ module.exports = (robot) ->
       msg.send "Custom branch message removed."
     else
       msg.send "No custom branch message set. Nothing to delete."
-      
+
   robot.respond /(.+) status\.?/i, (msg) ->
     job = msg.match[1].trim()
     doesJobExist robot, msg, job, (exists) ->
@@ -578,10 +578,10 @@ module.exports = (robot) ->
   robot.respond /set job repos\.?/i, (msg) ->
     removeJobRepos robot, msg
     setJobRepos robot, msg
-  
+
   robot.respond /remove job repos\.?/i, (msg) ->
     removeJobRepos robot, msg
-  
+
   robot.respond /set (.+) job to (.+)\.?/i, (msg) ->
     setBuildJob robot, msg
 
@@ -590,7 +590,7 @@ module.exports = (robot) ->
     existingDemployments = yardmaster?.deploymentJob?.filter (existingJob) -> existingJob.name != msg.match[1].trim()
     robot.brain.set 'yardmaster', yardmaster
     msg.send "Removed #{msg.match[1].trim()} from deployment jobs."
-     
+
   robot.respond /(deploy|merge|ship) (.+) to (.+)\.?/i, (msg) ->
     deployBranchToJob robot, msg
 
@@ -658,5 +658,3 @@ class WatchJob
   sendMessage: (robot, message) ->
     envelope = user: @user, room: @user.room
     robot.send envelope, message
-
-
