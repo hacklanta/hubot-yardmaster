@@ -131,13 +131,14 @@ buildFeedback = (robot, msg, job, branch) ->
     else
       msg.send "something went wrong with #{res.statusCode} :("
 
+keyValueRegex = /^([^=]+)=(.+)$/
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
     if msg.match[3]?
       rawParameters = msg.match[3].trim().split(' ')
 
       parameters = for rawParameter in rawParameters
-        [rawKey, rawValue] = rawParameter.split('=')
+        [_, rawKey, rawValue] = rawParameter.match(regex)
         encodedValue = encodeURIComponent(rawValue)
         "#{rawKey}=#{encodedValue}"
 
