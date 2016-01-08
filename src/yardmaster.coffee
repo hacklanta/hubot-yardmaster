@@ -138,7 +138,7 @@ buildBranch = (robot, msg, job, branch = "") ->
       rawParameters = msg.match[3].trim().split(' ')
 
       parameters = for rawParameter in rawParameters
-        [_, rawKey, rawValue] = rawParameter.match(regex)
+        [_, rawKey, rawValue] = rawParameter.match(keyValueRegex)
         encodedValue = encodeURIComponent(rawValue)
         "#{rawKey}=#{encodedValue}"
 
