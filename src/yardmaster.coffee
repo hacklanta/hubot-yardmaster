@@ -131,7 +131,7 @@ buildFeedback = (robot, msg, job, branch) ->
     else
       msg.send "something went wrong with #{res.statusCode} :("
 
-keyValueRegex = /^([^=]+)=(.+)$/
+keyValueRegex = /^([^=]+)=([^ ]+)/
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
     if msg.match[3]?
