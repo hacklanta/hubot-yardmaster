@@ -20,7 +20,7 @@
     "url": "https://github.com/hacklanta/hubot-yardmaster/issues"
   },
   "dependencies": {
-    "coffee-script": "~1.6",
+    "coffee-script": "*",
     "xml2js": "0.4",
     "cron": "1.0.4"
   },
@@ -28,10 +28,14 @@
     "mocha": "*",
     "chai": "*",
     "sinon-chai": "*",
-    "sinon": "*"
+    "sinon": "*",
+    "coffeelint": "*",
+    "hubot-test-helper": "*",
+    "nock": "*",
+    "co": "*"
   },
   "main": "index.coffee",
   "scripts": {
-    "test": "script/test"
+    "test": "mocha --compilers coffee:coffee-script/register tests"
   }
 }
