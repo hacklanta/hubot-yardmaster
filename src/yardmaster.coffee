@@ -67,7 +67,7 @@ checkAuthentcation = (robot, msg) ->
   if jenkinsUsername?
     msg.send "You are authenticated with Jenkins as #{jenkinsUsername}"
   else
-    msg.send "I don't seem to have any Jenkins credentials for you."
+    msg.send "I don't seem to have any Jenkins credentials for you. Commands you issue will use my Jenkins credentials."
 
 clearAuthentication = (robot, msg) ->
   yardmaster = robot.brain.get('yardmaster') || {}
@@ -77,9 +77,9 @@ clearAuthentication = (robot, msg) ->
     delete yardmaster.auth[msg.message.user]
     robot.brain.set 'yardmaster', yardmaster
 
-    msg.send "I've removed your Jenkins credentials."
+    msg.send "I've removed your Jenkins credentials. Commands you issue will use my Jenkins credentials."
   else
-    msg.send "I don't seem to have any Jenkins credentials for you."
+    msg.send "I don't seem to have any credentials for you. Commands you issue will use my Jenkins credentials."
 
 setAuthentication = (robot, msg) ->
   jenkinsUsername = msg.match[1]
