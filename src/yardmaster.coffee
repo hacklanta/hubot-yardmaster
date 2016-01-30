@@ -535,7 +535,7 @@ module.exports = (robot) ->
     )
     cronjob.start()
 
-  robot.respond /yardmaster auth ([^ ]+) (.+)/i, (msg) ->
+  robot.respond /jenkins auth ([^ ]+) (.+)/i, (msg) ->
     setAuthentication(robot, msg)
 
   robot.respond /(switch|change|build) (.+) (to|with) (.+)\.?/i, (msg) ->
