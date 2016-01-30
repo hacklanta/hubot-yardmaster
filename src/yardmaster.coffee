@@ -56,6 +56,28 @@ withAuthentication = (robot, msg, callback) ->
 
   callback(user, apiKey)
 
+checkAuthentcation = (robot, msg) ->
+  yardmaster = robot.brain.get('yardmaster') || {}
+  yardmaster.auth ||= {}
+  jenkinsUsername = yardmaster.auth[msg.message.user]?.user
+
+  if jenkinsUsername?
+    msg.send "You are authenticated with Jenkins as #{jenkinsUsername}"
+  else
+    msg.send "I don't seem to have any Jenkins credentials for you."
+
+clearAuthentication = (robot, msg) ->
+  yardmaster = robot.brain.get('yardmaster') || {}
+  yardmaster.auth ||= {}
+
+  if yardmaster.auth[msg.message.user]?
+    delete yardmaster.auth[msg.message.user]
+    robot.brain.set 'yardmaster', yardmaster
+
+    msg.send "I've removed your Jenkins credentials."
+  else
+    msg.send "I don't seem to have any Jenkins credentials for you."
+
 setAuthentication = (robot, msg) ->
   jenkinsUsername = msg.match[1]
   jenkinsApiKey = msg.match[2]
@@ -546,7 +568,13 @@ module.exports = (robot) ->
     )
     cronjob.start()
 
-  robot.respond /jenkins auth ([^ ]+) (.+)/i, (msg) ->
+  robot.respond /jenkins auth/i, (msg) ->
+    checkAuthentcation(robot, msg)
+
+  robot.respond /jenkins auth clear/i, (msg) ->
+    clearAuthentication(robot, msg)
+
+  robot.respond /jenkins auth set ([^ ]+) (.+)/i, (msg) ->
     setAuthentication(robot, msg)
 
   robot.respond /(switch|change|build) (.+) (to|with) (.+)\.?/i, (msg) ->
