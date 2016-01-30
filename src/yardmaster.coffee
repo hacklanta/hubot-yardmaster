@@ -144,7 +144,6 @@ buildBranch = (robot, msg, job, branch = "") ->
 
       joinedParameters = parameters.join('&')
 
-      console.log "job/#{job}/buildWithParameters?#{joinedParameters}"
       post robot, "job/#{job}/buildWithParameters?#{joinedParameters}", "", buildFeedback(robot, msg, job, branch)
     else
       post robot, "job/#{job}/build", "", buildFeedback(robot, msg, job, branch)
