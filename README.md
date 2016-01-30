@@ -5,12 +5,15 @@ Yardmaster is a Hubot plugin that allows you to interact with Jenkins instance r
 ### Environment Variables Required:
 * HUBOT_JENKINS_URL - Jenkins base URL
 * HUBOT_JENKINS_USER - Jenins admin user
-* HUBOT_JENKINS_USER_API_KEY - Admin user API key. Not your password. Find at "{HUBOT_JENKINS_URL}/{HUBOT_JENKINS_USER}/configure" 
+* HUBOT_JENKINS_USER_API_KEY - Admin user API key. Not your password. Find at "{HUBOT_JENKINS_URL}/{HUBOT_JENKINS_USER}/configure"
 * HUBOT_JENKINS_JOB_NAME - Hubot job name on Jenkins (optional)
 * GITHUB_TOKEN - Github API Auth token (optional)
 * MONITOR_JENKINS - true | false : If true, hubot will monitor the jenkins queue and start nodes when job queue is greater than 2.
 
 ### Commands:
+* hubot jenkins auth set {username} {api key} - Give Hubot your credentials to use when you issue commands.
+* hubot jenkins auth - See what Jenkins username the Hubot has for you.
+* hubot jenkins auth clear - Clear your Jenkins credentials.
 * hubot switch|change|build {job} to|with {branch} - Change job to branch on Jenkins and build.
 * hubot (show|current|show current) branch for {job} - Shows current branch for job on Jenkins.
 * hubot (go) build yourself|(go) ship yourself - Rebuilds default branch if set.
@@ -30,6 +33,6 @@ Yardmaster is a Hubot plugin that allows you to interact with Jenkins instance r
 * hubot (show|show last|last) (build) (date|time) for {job} - shows the last build date and time for a job
 * hubot (start|build) (builder|slave|node) - starts one of the available slave nodes.
 * hubot send reinforcements - starts one of the available slave nodes.
- 
-#### Author: 
+
+#### Author:
 #### @riveramj
