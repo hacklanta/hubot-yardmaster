@@ -60,16 +60,27 @@ setAuthentication = (robot, msg) ->
   jenkinsUsername = msg.match[1]
   jenkinsApiKey = msg.match[2]
 
-  yardmaster = robot.brain.get('yardmaster') || {}
-  yardmaster.auth ||= {}
+  msg.send "Attempting to authenticate you as #{jenkinsUsername}"
 
-  yardmaster.auth[msg.message.user] =
-    user: jenkinsUsername
-    apiKey: jenkinsApiKey
+  url = jenkinsURL + "/api/json"
+  robot.http(url)
+    .auth(jenkinsUsername, jenkinsApiKey)
+    .get() (err, res, body) ->
+      if err
+        msg.send "Encountered an error verifying authentication: #{err}"
+      else if res.statusCode != 200
+        msg.send "Got a #{res.statusCode} status code while trying to authenticate. Please verify your credentials."
+      else
+        yardmaster = robot.brain.get('yardmaster') || {}
+        yardmaster.auth ||= {}
 
-  robot.brain.set 'yardmaster', yardmaster
+        yardmaster.auth[msg.message.user] =
+          user: jenkinsUsername
+          apiKey: jenkinsApiKey
 
-  msg.send "Done. From now on I'll authenticate your requests to jenkins as #{jenkinsUsername}."
+        robot.brain.set 'yardmaster', yardmaster
+
+        msg.send "Done. From now on I'll authenticate your requests to jenkins as #{jenkinsUsername}."
 
 getByFullUrl = (robot, msg, url, callback) ->
   withAuthentication robot, msg, (user, apiKey) ->
