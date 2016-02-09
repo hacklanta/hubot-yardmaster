@@ -587,7 +587,7 @@ module.exports = (robot) ->
     )
     cronjob.start()
 
-  robot.respond /jenkins auth/i, (msg) ->
+  robot.respond /jenkins auth$/i, (msg) ->
     checkAuthentcation(robot, msg)
 
   robot.respond /jenkins auth clear/i, (msg) ->
