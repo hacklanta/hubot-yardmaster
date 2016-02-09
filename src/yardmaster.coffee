@@ -20,7 +20,7 @@
 #   hubot (show|current|show current) branch for {job} - Shows current branch for job on Jenkins.
 #   hubot (go) build yourself|(go) ship yourself - Rebuilds default branch if set.
 #   hubot list jobs|jenkins list|all jobs|jobs {job} - Shows all jobs in Jenkins. Filters by job if provided.
-#   hubot build|rebuild {job} - Rebuilds job.
+#   hubot build|rebuild {job} [PARAM1=VALUE1 PARAM2=VALUE2 ...]- Rebuilds job, optionally with parameters.
 #   hubot enable|disable {job} - Enable or disable job on jenkins.
 #   hubot show|show last|last (build|failure|output) for {job} - show output for last job
 #   hubot show|show output|output for {job} {number} - show output job output for number given
@@ -169,31 +169,47 @@ doesJobExist = (robot, msg, job, callback) ->
       else
         callback(true)
 
+buildFeedback = (robot, msg, job, branch) ->
+  (err, res, body) ->
+    queueUrl = res.headers?["location"]
+
+    if err
+      msg.send "Encountered an error on build :( #{err}"
+    else if res.statusCode is 201
+      if branch
+        customMessage = robot.brain.get("yardmaster")?["build-message"]
+        if customMessage
+          customMessage = customMessage.replace /job/, job
+          customMessage = customMessage.replace /branch/, branch
+          msg.send customMessage
+          watchQueue robot, queueUrl, msg
+        else
+          msg.send "#{job} is building with #{branch}. I'll keep an eye on it for you."
+          watchQueue robot, queueUrl, msg
+      else if job == jenkinsHubotJob
+        msg.send "I'll Be right back"
+      else
+        msg.send "#{job} is building. I'll let you know when it's done."
+        watchQueue robot, queueUrl, msg
+    else
+      msg.send "something went wrong with #{res.statusCode} :("
+
+keyValueRegex = /^([^=]+)=([^ ]+)/
 buildBranch = (robot, msg, job, branch = "") ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
-    post robot, msg, "job/#{job}/build", "", (err, res, body) ->
-      queueUrl = res.headers?["location"]
+    if msg.match[3]?
+      rawParameters = msg.match[3].trim().split(' ')
 
-      if err
-        msg.send "Encountered an error on build :( #{err}"
-      else if res.statusCode is 201
-        if branch
-          customMessage = robot.brain.get("yardmaster")?["build-message"]
-          if customMessage
-            customMessage = customMessage.replace /job/, job
-            customMessage = customMessage.replace /branch/, branch
-            msg.send customMessage
-            watchQueue robot, queueUrl, msg
-          else
-            msg.send "#{job} is building with #{branch}. I'll keep an eye on it for you."
-            watchQueue robot, queueUrl, msg
-        else if job == jenkinsHubotJob
-          msg.send "I'll Be right back"
-        else
-          msg.send "#{job} is building. I'll let you know when it's done."
-          watchQueue robot, queueUrl, msg
-      else
-        msg.send "something went wrong with #{res.statusCode} :("
+      parameters = for rawParameter in rawParameters
+        [_, rawKey, rawValue] = rawParameter.trim().match(keyValueRegex)
+        encodedValue = encodeURIComponent(rawValue)
+        "#{rawKey}=#{encodedValue}"
+
+      joinedParameters = parameters.join('&')
+
+      post robot, "job/#{job}/buildWithParameters?#{joinedParameters}", "", buildFeedback(robot, msg, job, branch)
+    else
+      post robot, "job/#{job}/build", "", buildFeedback(robot, msg, job, branch)
 
 getCurrentBranch = (body) ->
   branch = ""
@@ -598,7 +614,7 @@ module.exports = (robot) ->
   robot.respond /(list jobs|jenkins list|all jobs|jobs)\s*(.*)\.?/i, (msg) ->
     listJobs(robot, msg)
 
-  robot.respond /(build|rebuild) (.+)/i, (msg) ->
+  robot.respond /(build|rebuild) ([^ ]+)((?: [^ ]+=[^ ]+)+)?/i, (msg) ->
     buildJob(robot, msg)
 
   robot.respond /(disable|enable) (.+)/i, (msg) ->

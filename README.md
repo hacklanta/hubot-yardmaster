@@ -18,7 +18,9 @@ Yardmaster is a Hubot plugin that allows you to interact with Jenkins instance r
 * hubot (show|current|show current) branch for {job} - Shows current branch for job on Jenkins.
 * hubot (go) build yourself|(go) ship yourself - Rebuilds default branch if set.
 * hubot list jobs|jenkins list|all jobs|jobs {job} - Shows all jobs in Jenkins. Filters by job if provided.
-* hubot build|rebuild {job} - Rebuilds job.
+* hubot build|rebuild {job} [PARAM1=VALUE1 PARAM2=VALUE2 ...] - Rebuilds job, optionally with parameters.
+  * The parameter names must match those defined in Jenkins and currently values cannot have spaces in them.
+* hubot build|rebuild {job}
 * hubot enable|disable {job} - Enable or disable job on jenkins.
 * hubot show|show last|last (build|failure|output) for {job} - show output for last job
 * hubot show|show output|output for {job} {number} - show output job output for number given
