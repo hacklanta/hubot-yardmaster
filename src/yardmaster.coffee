@@ -207,9 +207,9 @@ buildBranch = (robot, msg, job, branch = "") ->
 
       joinedParameters = parameters.join('&')
 
-      post robot, "job/#{job}/buildWithParameters?#{joinedParameters}", "", buildFeedback(robot, msg, job, branch)
+      post robot, msg, "job/#{job}/buildWithParameters?#{joinedParameters}", "", buildFeedback(robot, msg, job, branch)
     else
-      post robot, "job/#{job}/build", "", buildFeedback(robot, msg, job, branch)
+      post robot, msg, "job/#{job}/build", "", buildFeedback(robot, msg, job, branch)
 
 getCurrentBranch = (body) ->
   branch = ""
