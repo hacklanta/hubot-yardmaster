@@ -13,6 +13,9 @@
 #   MONITOR_JENKINS - true | false : If true, hubot will monitor the jenkins queue and start nodes when job queue is greater than 2.
 #
 # Commands:
+#   hubot jenkins auth set {username} {api key} - Give Hubot your credentials to use when you issue commands.
+#   hubot jenkins auth - See what Jenkins username the Hubot has for you.
+#   hubot jenkins auth clear - Clear your Jenkins credentials.
 #   hubot switch|change|build {job} to|with {branch} - Change job to branch on Jenkins and build.
 #   hubot (show|current|show current) branch for {job} - Shows current branch for job on Jenkins.
 #   hubot (go) build yourself|(go) ship yourself - Rebuilds default branch if set.
@@ -48,35 +51,95 @@ monitorJenkins = process.env.MONITOR_JENKINS || ''
 
 JOBS = {}
 
-getByFullUrl = (robot, url, callback) ->
+withAuthentication = (robot, msg, callback) ->
+  authStructure = robot.brain.get('yardmaster')?.auth?[msg.message.user] || {}
+
+  user = authStructure.user || jenkinsUser
+  apiKey = authStructure.apiKey || jenkinsUserAPIKey
+
+  callback(user, apiKey)
+
+checkAuthentcation = (robot, msg) ->
+  yardmaster = robot.brain.get('yardmaster') || {}
+  yardmaster.auth ||= {}
+  jenkinsUsername = yardmaster.auth[msg.message.user]?.user
+
+  if jenkinsUsername?
+    msg.send "You are authenticated with Jenkins as #{jenkinsUsername}"
+  else
+    msg.send "I don't seem to have any Jenkins credentials for you. Commands you issue will use my Jenkins credentials."
+
+clearAuthentication = (robot, msg) ->
+  yardmaster = robot.brain.get('yardmaster') || {}
+  yardmaster.auth ||= {}
+
+  if yardmaster.auth[msg.message.user]?
+    delete yardmaster.auth[msg.message.user]
+    robot.brain.set 'yardmaster', yardmaster
+
+    msg.send "I've removed your Jenkins credentials. Commands you issue will use my Jenkins credentials."
+  else
+    msg.send "I don't seem to have any credentials for you. Commands you issue will use my Jenkins credentials."
+
+setAuthentication = (robot, msg) ->
+  jenkinsUsername = msg.match[1]
+  jenkinsApiKey = msg.match[2]
+
+  msg.send "Attempting to authenticate you as #{jenkinsUsername}"
+
+  url = jenkinsURL + "/api/json"
   robot.http(url)
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
+    .auth(jenkinsUsername, jenkinsApiKey)
     .get() (err, res, body) ->
       if err
-        robot.send "Encountered an error :( #{err}"
+        msg.send "Encountered an error verifying authentication: #{err}"
+      else if res.statusCode != 200
+        msg.send "Got a #{res.statusCode} status code while trying to authenticate. Please verify your credentials."
       else
-        callback(res, body)
+        yardmaster = robot.brain.get('yardmaster') || {}
+        yardmaster.auth ||= {}
+
+        yardmaster.auth[msg.message.user] =
+          user: jenkinsUsername
+          apiKey: jenkinsApiKey
+
+        robot.brain.set 'yardmaster', yardmaster
+
+        msg.send "Done. From now on I'll authenticate your requests to jenkins as #{jenkinsUsername}."
+
+getByFullUrl = (robot, msg, url, callback) ->
+  withAuthentication robot, msg, (user, apiKey) ->
+    robot.http(url)
+      .auth("#{user}", "#{apiKey}")
+      .get() (err, res, body) ->
+        if err
+          robot.send "Encountered an error :( #{err}"
+        else
+          callback(res, body)
 
 get = (robot, msg, queryOptions, callback) ->
-  robot.http("#{jenkinsURL}/#{queryOptions}")
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .get() (err, res, body) ->
-      if err
-        msg.send "Encountered an error :( #{err}"
-      else
-        callback(res, body)
+  withAuthentication robot, msg, (user, apiKey) ->
+    robot.http("#{jenkinsURL}/#{queryOptions}")
+      .auth("#{user}", "#{apiKey}")
+      .get() (err, res, body) ->
+        if err
+          msg.send "Encountered an error :( #{err}"
+        else
+          callback(res, body)
 
-post = (robot, queryOptions, postOptions, callback) ->
-  robot.http("#{jenkinsURL}/#{queryOptions}")
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .post(postOptions) (err, res, body) ->
-      callback(err, res, body)
+post = (robot, msg, queryOptions, postOptions, callback) ->
+  withAuthentication robot, msg, (user, apiKey) ->
+    robot.http("#{jenkinsURL}/#{queryOptions}")
+      .auth("#{user}", "#{apiKey}")
+      .post(postOptions) (err, res, body) ->
+        callback(err, res, body)
 
-postByFullUrl = (robot, url, postOptions, callback) ->
-  robot.http(url)
-    .auth("#{jenkinsUser}", "#{jenkinsUserAPIKey}")
-    .post(postOptions) (err, res, body) ->
-      callback(err, res, body)
+postByFullUrl = (robot, msg, url, postOptions, callback) ->
+  withAuthentication robot, msg, (user, apiKey) ->
+    robot.http(url)
+      .auth("#{user}", "#{apiKey}")
+      .post(postOptions) (err, res, body) ->
+        callback(err, res, body)
 
 ifJobEnabled = (robot, msg, job, callback) ->
   get robot, msg, "job/#{job}/config.xml", (res, body) ->
@@ -144,9 +207,9 @@ buildBranch = (robot, msg, job, branch = "") ->
 
       joinedParameters = parameters.join('&')
 
-      post robot, "job/#{job}/buildWithParameters?#{joinedParameters}", "", buildFeedback(robot, msg, job, branch)
+      post robot, msg, "job/#{job}/buildWithParameters?#{joinedParameters}", "", buildFeedback(robot, msg, job, branch)
     else
-      post robot, "job/#{job}/build", "", buildFeedback(robot, msg, job, branch)
+      post robot, msg, "job/#{job}/build", "", buildFeedback(robot, msg, job, branch)
 
 getCurrentBranch = (body) ->
   branch = ""
@@ -176,7 +239,7 @@ switchBranch = (robot, msg) ->
         config = body.replace /\<hudson.plugins.git.BranchSpec\>\n\s*\<name\>.*\<\/name\>\n\s*<\/hudson.plugins.git.BranchSpec\>/g, "<hudson.plugins.git.BranchSpec>\n        <name>#{branch}</name>\n      </hudson.plugins.git.BranchSpec>"
 
         # try to update config
-        post robot, "job/#{job}/config.xml", config, (err, res, body) ->
+        post robot, msg, "job/#{job}/config.xml", config, (err, res, body) ->
           if err
             msg.send "Encountered an error :( #{err}"
           else if res.statusCode is 200
@@ -219,7 +282,7 @@ changeJobState = (robot, msg) ->
   changeState = msg.match[1].trim()
   job = msg.match[2].trim()
 
-  post robot, "job/#{job}/#{changeState}", "", (err, res, body) ->
+  post robot, msg, "job/#{job}/#{changeState}", "", (err, res, body) ->
     if err
       msg.send "something went wrong! Error: #{err}."
     else if res.statusCode == 302
@@ -458,7 +521,7 @@ watchQueue = (robot, url, msg) ->
 
   queueUrl = "#{jenkinsURL}/queue/item/#{jobNumber}/api/json"
 
-  getByFullUrl robot, queueUrl, (res, body) ->
+  getByFullUrl robot, msg, queueUrl, (res, body) ->
     if res.statusCode is 404
       msg.send "#{url} does not seem to be a valid url. Couldn't watch job."
     else
@@ -467,7 +530,7 @@ watchQueue = (robot, url, msg) ->
 watchJob = (robot, msg) ->
   jobUrl = trimUrl msg.match[1].trim()
 
-  getByFullUrl robot, "#{jobUrl}/api/json", (res, body) ->
+  getByFullUrl robot, msg, "#{jobUrl}/api/json", (res, body) ->
     if res.statusCode is 404
       msg.send "#{jobUrl} does not seem to be a valid job url."
     else
@@ -476,13 +539,13 @@ watchJob = (robot, msg) ->
 cancelJob = (robot, msg) ->
   jobUrl = trimUrl msg.match[1].trim()
 
-  postByFullUrl robot, "#{jobUrl}/stop", "", (err, res, body) ->
+  postByFullUrl robot, msg, "#{jobUrl}/stop", "", (err, res, body) ->
     if err
       msg.send "got #{err} when tryign to post to #{jobUrl}/stop"
     else if res.statusCode is 404
       msg.send "#{jobUrl} does not seem to be a valid job url."
     else
-      getByFullUrl robot, "#{jobUrl}/api/json", (res, body) ->
+      getByFullUrl robot, msg, "#{jobUrl}/api/json", (res, body) ->
         result = JSON.parse(body).result
         if result == "ABORTED"
           msg.send "Job successfully canceled. Ready for new orders."
@@ -506,7 +569,7 @@ module.exports = (robot) ->
       if nodes.length > 0
         name = nodes[0].displayName
         encodedName = encodeURIComponent name
-        post robot, "/computer/#{encodedName}/launchSlaveAgent", "", (err, res, body) ->
+        post robot, msg, "/computer/#{encodedName}/launchSlaveAgent", "", (err, res, body) ->
           callback("#{name} started. Check #{jenkinsURL}/computer/#{encodedName}/log for more details.")
       else
         callback("No available nodes to build.")
@@ -523,6 +586,15 @@ module.exports = (robot) ->
             console.log result
     )
     cronjob.start()
+
+  robot.respond /jenkins auth$/i, (msg) ->
+    checkAuthentcation(robot, msg)
+
+  robot.respond /jenkins auth clear/i, (msg) ->
+    clearAuthentication(robot, msg)
+
+  robot.respond /jenkins auth set ([^ ]+) (.+)/i, (msg) ->
+    setAuthentication(robot, msg)
 
   robot.respond /(switch|change|build) (.+) (to|with) (.+)\.?/i, (msg) ->
     switchBranch(robot, msg)
@@ -632,7 +704,7 @@ class WatchJob
     @user = user
 
   checkJobStatus: (url, robot, job, msg) ->
-    getByFullUrl robot, "#{url}/api/json", (res, body) ->
+    getByFullUrl robot, msg, "#{url}/api/json", (res, body) ->
       if res.statusCode is 404
         unregisterWatchedJob robot, job.id
         msg.send "#{url} does not seem to be a valid job url. Removing from watch list"
@@ -644,7 +716,7 @@ class WatchJob
           msg.send "@#{job.user.name}, job #{url} finished with status: #{result}."
 
   checkQueueStatus: (url, robot, job, msg) ->
-    getByFullUrl robot, url, (res, body) ->
+    getByFullUrl robot, msg, url, (res, body) ->
       if res.statusCode is 404
         unregisterWatchedJob robot, job.id
         msg.send "#{url} does not seem to be a valid job url. Removing from watch list"
