@@ -195,9 +195,9 @@ buildFeedback = (robot, msg, job, branch) ->
       msg.send "something went wrong with #{res.statusCode} :("
 
 keyValueRegex = /^([^=]+)=([^ ]+)/
-buildBranch = (robot, msg, job, branch = "") ->
+buildBranch = (robot, msg, job, branch = "", checkForParams = true) ->
   ifJobEnabled robot, msg, job, (jobStatus) ->
-    if msg.match[3]?
+    if msg.match[3]? && checkForParams
       rawParameters = msg.match[3].trim().split(' ')
 
       parameters = for rawParameter in rawParameters
@@ -244,7 +244,7 @@ switchBranch = (robot, msg) ->
             msg.send "Encountered an error :( #{err}"
           else if res.statusCode is 200
             # if update successful build branch
-            buildBranch(robot, msg, job, branch)
+            buildBranch(robot, msg, job, branch, false)
           else if res.statusCode is 404
             msg.send "Job '#{job}' not found"
           else
